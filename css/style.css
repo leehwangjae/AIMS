@@ -1,0 +1,115 @@
+/* AIMS base stylesheet module
+ * 기존 index.html 내 스타일을 단계적으로 이 파일로 이전하기 위한 기준 파일입니다.
+ * Phase 2에서 index.html의 <style> 내용을 이 파일로 완전 분리합니다.
+ */
+
+:root {
+  --bg: #f4f6fb;
+  --surface: #fff;
+  --surface2: #f8f9fc;
+  --text: #1a1d2e;
+  --text2: #6b7280;
+  --text3: #9ca3af;
+  --border: #e5e7eb;
+  --border2: #d1d5db;
+  --primary: #185fa5;
+  --primary-h: #1470bc;
+  --primary-l: #e6f1fb;
+  --green: #0f6e56;
+  --green-l: #e1f5ee;
+  --orange: #854f0b;
+  --orange-l: #faeeda;
+  --purple: #534ab7;
+  --purple-l: #eeedfe;
+  --red: #a32d2d;
+  --red-l: #fcebeb;
+  --r-sm: 5px;
+  --r-md: 8px;
+  --r-lg: 12px;
+  --r-xl: 16px;
+  --shadow: 0 2px 12px rgba(0, 0, 0, .08);
+  --shadow-lg: 0 8px 32px rgba(0, 0, 0, .14);
+  --font: -apple-system, BlinkMacSystemFont, 'Pretendard', 'Apple SD Gothic Neo', 'Noto Sans KR', sans-serif;
+}
+
+* {
+  box-sizing: border-box;
+  margin: 0;
+  padding: 0;
+}
+
+body {
+  font-family: var(--font);
+  background: var(--bg);
+  color: var(--text);
+  min-height: 100vh;
+}
+
+.btn {
+  padding: 7px 14px;
+  border: none;
+  border-radius: var(--r-md);
+  cursor: pointer;
+  font-size: 12px;
+  font-family: var(--font);
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  transition: all .15s;
+  font-weight: 500;
+}
+
+.btn-primary {
+  background: var(--primary);
+  color: #fff;
+}
+
+.btn-primary:hover {
+  background: var(--primary-h);
+}
+
+.btn-outline {
+  background: none;
+  border: 1px solid var(--border2);
+  color: var(--text2);
+}
+
+.btn-outline:hover {
+  border-color: var(--primary);
+  color: var(--primary);
+  background: var(--primary-l);
+}
+
+.sc {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--r-lg);
+  margin-bottom: 1rem;
+  box-shadow: 0 1px 4px rgba(0, 0, 0, .04);
+}
+
+.tbl {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 12px;
+}
+
+.tbl th {
+  padding: 8px 9px;
+  border-bottom: 1px solid var(--border);
+  color: var(--text2);
+  font-weight: 500;
+  font-size: 11px;
+  text-align: left;
+  background: var(--surface2);
+}
+
+.tbl td {
+  padding: 7px 9px;
+  border-bottom: 1px solid var(--border);
+  vertical-align: middle;
+}
+
+.hidden {
+  display: none !important;
+}
