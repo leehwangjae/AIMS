@@ -88,7 +88,7 @@ body{font-family:var(--font);background:var(--bg);color:var(--text);min-height:1
 .sct{font-size:13px;font-weight:600}
 .scb{padding:11px 15px}
 /* ── TABLE ── */
-.tbl{width:100%;border-collapse:collapse;font-size:12px;table-layout:fixed}
+.tbl{width:100%;border-collapse:collapse;font-size:12px}
 .tbl th{padding:8px 9px;border-bottom:1px solid var(--border);color:var(--text2);font-weight:500;font-size:11px;text-align:left;background:var(--surface2)}
 .tbl td{padding:7px 9px;border-bottom:1px solid var(--border);vertical-align:middle}
 .tbl tr:last-child td{border-bottom:none}
@@ -193,15 +193,16 @@ body{font-family:var(--font);background:var(--bg);color:var(--text);min-height:1
 .dm-item.danger{color:var(--red)}
 .dm-item.danger:hover{background:var(--red-l)}
 .dm-sep{height:1px;background:var(--border);margin:4px 0}
-/* ── ACTION BUTTONS (항상 보임) ── */
-.abtn{display:inline-flex;align-items:center;gap:3px;padding:4px 10px;border-radius:5px;font-size:12px;font-family:var(--font);cursor:pointer;font-weight:500;white-space:nowrap;transition:all .15s;border:1px solid transparent}
-.abtn-edit{background:#e6f1fb;color:#185fa5;border-color:#b8d4f0}
-.abtn-edit:hover{background:#185fa5;color:#fff}
-.abtn-del{background:#fcebeb;color:#a32d2d;border-color:#f0b8b8}
-.abtn-del:hover{background:#a32d2d;color:#fff}
-.abtn-green{background:#e1f5ee;color:#0f6e56;border-color:#a8dece}
-.abtn-green:hover{background:#0f6e56;color:#fff}
-.abtn-wrap{display:flex;gap:4px;flex-wrap:wrap}
+/* ── ACTION BUTTONS ── */
+.abtn-wrap{display:flex;gap:5px;align-items:center}
+.abtn,.abtn-edit,.abtn-del,.abtn-green{width:32px;height:32px;border-radius:7px;cursor:pointer;display:inline-flex;align-items:center;justify-content:center;font-size:15px;flex-shrink:0;border:none;transition:all .15s}
+.abtn-edit{background:#dbeafe;color:#1d4ed8}
+.abtn-edit:hover{background:#1d4ed8;color:#fff;transform:scale(1.08)}
+.abtn-del{background:#fee2e2;color:#b91c1c}
+.abtn-del:hover{background:#b91c1c;color:#fff;transform:scale(1.08)}
+.abtn-green{background:#d1fae5;color:#065f46}
+.abtn-green:hover{background:#065f46;color:#fff;transform:scale(1.08)}
+.abtn-ind{width:auto;height:auto;padding:5px 12px;border-radius:6px;font-size:12px;font-weight:500;font-family:var(--font)}
 /* ── DELAY REASON ── */
 .delay-reason{font-size:11px;color:#a32d2d;background:#fcebeb;border-radius:4px;padding:2px 7px;margin-top:3px;display:inline-block}
 /* ── PERMISSION HINT ── */
@@ -772,7 +773,7 @@ function rtTask(){
     <button class="btn btn-primary" onclick="opTask()"><i class="ti ti-plus"></i> 업무 추가</button>
   </div>
   <div class="sc ov"><table class="tbl">
-    <colgroup><col style="width:46px"><col style="width:65px"><col><col style="width:55px"><col style="width:115px"><col style="width:55px"><col style="width:58px"><col style="width:80px"><col style="width:52px"></colgroup>
+    <colgroup><col style="width:44px"><col style="width:62px"><col><col style="width:50px"><col style="width:100px"><col style="width:50px"><col style="width:54px"><col style="width:76px"><col style="width:78px"></colgroup>
     <thead><tr><th>단위</th><th>구분</th><th>업무명</th><th>담당자</th><th>진행률</th><th>상태</th><th>마감일</th><th>연계지표</th><th>관리</th></tr></thead>
     <tbody>`;
   ft.forEach(t=>{
@@ -810,8 +811,8 @@ function rtInd(){
       <span class="sct" style="color:${UC[u]}">${u} · ${UN[u]}</span>
       <span style="font-size:12px;color:${UC[u]};background:${UC[u]}18;padding:3px 10px;border-radius:10px;font-weight:500">${ach}/${ui.length}개 달성</span>
     </div>
-    <table class="tbl"><colgroup><col><col style="width:62px"><col style="width:62px"><col style="width:62px"><col style="width:56px"><col style="width:105px"><col style="width:34px"></colgroup>
-    <thead><tr><th>지표명</th><th style="text-align:right">2025실적</th><th style="text-align:right">2026목표</th><th style="text-align:right">2026실적</th><th>달성도</th><th>달성 현황</th><th></th></tr></thead><tbody>`;
+    <table class="tbl"><colgroup><col><col style="width:62px"><col style="width:62px"><col style="width:62px"><col style="width:56px"><col style="width:100px"><col style="width:90px"></colgroup>
+    <thead><tr><th>지표명</th><th style="text-align:right">2025실적</th><th style="text-align:right">2026목표</th><th style="text-align:right">2026실적</th><th>달성도</th><th>달성 현황</th><th>관리</th></tr></thead><tbody>`;
     ui.forEach(i=>{
       const r=i.t26>0?pct(i.a26,i.t26):null;
       h+=`<tr>
@@ -821,7 +822,7 @@ function rtInd(){
         <td style="text-align:right;font-weight:600;font-size:11.5px;color:${r!==null&&i.a26>0?ac(r):'var(--text2)'}">${i.a26>0?fmt(i.a26)+i.ul:'-'}</td>
         <td>${r!==null&&i.a26>0?`<span style="font-size:11.5px;font-weight:600;color:${ac(r)}">${r}%</span>`:`<span style="font-size:11px;color:var(--text3)">-</span>`}</td>
         <td>${r!==null?`<div class="minibar"><div class="mbf" style="width:${Math.min(r,100)}%;background:${ac(r||0)}"></div></div><div style="font-size:9.5px;color:var(--text2);margin-top:1px">${i.a25>0?'전년 '+pct(i.a25,i.t25)+'%':'-'}</div>`:''}</td>
-        <td>${isAdmin()?`<button class="abtn abtn-edit" onclick="opInd('${i.id}')"><i class="ti ti-edit"></i> 입력</button>`:`<span style="font-size:11px;color:var(--text3)">🔒</span>`}</td>
+        <td>${isAdmin()?`<button class="abtn abtn-edit abtn-ind" onclick="opInd('${i.id}')"><i class="ti ti-pencil"></i> 실적입력</button>`:`<span style="font-size:11px;color:var(--text3)">🔒</span>`}</td>
       </tr>`;
     });
     h+=`</tbody></table></div>`;
@@ -878,7 +879,7 @@ function rtBud(){
       <span style="font-size:12.5px;font-weight:600;color:${tc}">${btype}사업비</span>
       <span style="font-size:11.5px;color:${tc}">편성 ${fmt(sa)} · 집행 ${fmt(se)} · 집행률 <strong>${sr}%</strong> (천원)</span>
     </div>
-    <table class="tbl"><colgroup><col style="width:46px"><col style="width:74px"><col><col style="width:84px"><col style="width:84px"><col style="width:84px"><col style="width:48px"><col style="width:82px"><col style="width:52px"></colgroup>
+    <table class="tbl"><colgroup><col style="width:44px"><col style="width:70px"><col><col style="width:80px"><col style="width:80px"><col style="width:80px"><col style="width:48px"><col style="width:78px"><col style="width:78px"></colgroup>
     <thead><tr><th>단위</th><th>비목</th><th>항목명</th><th style="text-align:right">편성</th><th style="text-align:right">집행</th><th style="text-align:right">잔액</th><th>집행률</th><th>현황</th><th>관리</th></tr></thead><tbody>`;
     bi.forEach(b=>{
       const r=pct(b.ex,b.al);const cl=CC[b.cat]||'#534ab7';
@@ -912,7 +913,7 @@ function rtPersonal(){
   if(personalView==='doc'){
     h+=`<div class="tbar"><div></div><button class="btn btn-primary" onclick="opDoc()"><i class="ti ti-plus"></i> 기안 추가</button></div>
     <div class="sc ov"><table class="tbl">
-      <colgroup><col style="width:78px"><col style="width:46px"><col><col style="width:62px"><col style="width:58px"><col style="width:62px"><col style="width:55px"><col style="width:52px"></colgroup>
+      <colgroup><col style="width:75px"><col style="width:44px"><col><col style="width:62px"><col style="width:55px"><col style="width:60px"><col style="width:72px"><col style="width:78px"></colgroup>
       <thead><tr><th>유형</th><th>단위</th><th>제목</th><th>기안일</th><th>담당자</th><th>상태</th><th>첨부파일</th><th>관리</th></tr></thead><tbody>`;
     dokuments.forEach(d=>{
       const dc=DTYPE_C[d.dtype]||'#534ab7';
@@ -933,7 +934,7 @@ function rtPersonal(){
   } else if(personalView==='report'){
     h+=`<div class="tbar"><div></div><button class="btn btn-primary" onclick="opRpt()"><i class="ti ti-plus"></i> 보고서 추가</button></div>
     <div class="sc ov"><table class="tbl">
-      <colgroup><col style="width:105px"><col><col style="width:68px"><col style="width:58px"><col style="width:68px"><col style="width:52px"></colgroup>
+      <colgroup><col style="width:100px"><col><col style="width:65px"><col style="width:55px"><col style="width:65px"><col style="width:78px"></colgroup>
       <thead><tr><th>유형</th><th>제목</th><th>제출기한</th><th>담당자</th><th>상태</th><th>관리</th></tr></thead><tbody>`;
     reports.forEach(r=>{
       const rc=RTYPE_C[r.rtype]||'#534ab7';
