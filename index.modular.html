@@ -1,0 +1,60 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>AIMS · Modular App</title>
+
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@tabler/icons-webfont@3.0.0/tabler-icons.min.css">
+  <link rel="stylesheet" href="./css/style.css">
+</head>
+<body>
+  <div id="topbarContainer"></div>
+
+  <main class="main" style="padding:20px;max-width:1440px;margin:0 auto;">
+    <div id="loginContainer"></div>
+    <div id="appContainer"></div>
+  </main>
+
+  <script type="module">
+    import { getCurrentUser } from './js/auth.js';
+    import { renderMenu } from './js/menu.js';
+    import { renderTopbar, renderPageLayout } from './js/layout.js';
+    import { renderLoginView, renderUserStatus } from './js/login-view.js';
+    import { renderRoute, bindMenuRouting } from './js/router.js';
+    import './js/app.js';
+
+    function initializeModularApp() {
+      renderTopbar('#topbarContainer');
+
+      const currentUser = getCurrentUser();
+
+      if (!currentUser) {
+        renderLoginView('#loginContainer', user => {
+          startApplication(user);
+        });
+
+        return;
+      }
+
+      startApplication(currentUser);
+    }
+
+    function startApplication(user) {
+      document.querySelector('#loginContainer').innerHTML = '';
+
+      renderPageLayout('#appContainer');
+      renderUserStatus('#userStatusContainer', () => {
+        location.reload();
+      });
+
+      renderMenu('#menuContainer', user, 'dashboard');
+      renderRoute('dashboard');
+
+      bindMenuRouting();
+    }
+
+    initializeModularApp();
+  </script>
+</body>
+</html>
