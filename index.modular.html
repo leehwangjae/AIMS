@@ -1,0 +1,69 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>AIMS · Modular Preview</title>
+
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@tabler/icons-webfont@3.0.0/tabler-icons.min.css">
+  <link rel="stylesheet" href="./css/style.css">
+</head>
+<body>
+  <header class="topbar">
+    <div class="tb-brand">
+      <div class="tb-logo">A</div>
+      <div class="tb-name">AIMS Modular Preview</div>
+    </div>
+
+    <div class="tb-right">
+      <button class="btn btn-outline" id="toastButton">
+        <i class="ti ti-bell"></i>
+        Toast Test
+      </button>
+    </div>
+  </header>
+
+  <main class="main">
+    <section class="sc">
+      <div class="sch">
+        <div class="sct">모듈형 구조 미리보기</div>
+      </div>
+
+      <div class="scb">
+        <p style="font-size:13px;color:#6b7280;margin-bottom:16px;line-height:1.7;">
+          현재 페이지는 AIMS 시스템의 점진적 모듈화 리팩토링을 위한 Preview 화면입니다.
+          기존 index.html은 유지하면서, 신규 구조와 JS 모듈을 병행 검증하기 위한 목적입니다.
+        </p>
+
+        <div id="menuContainer" class="nav"></div>
+
+        <div id="dashboardSummary"></div>
+      </div>
+    </section>
+  </main>
+
+  <script type="module">
+    import { login, getCurrentUser } from './js/auth.js';
+    import { renderMenu } from './js/menu.js';
+    import { renderDashboardSummary } from './js/dashboard.js';
+    import { showToast } from './js/ui.js';
+
+    const previewUser = {
+      id: 'user_001',
+      name: '총괄관리자',
+      role: 'MASTER'
+    };
+
+    login(previewUser);
+
+    const currentUser = getCurrentUser();
+
+    renderMenu('#menuContainer', currentUser);
+    renderDashboardSummary('#dashboardSummary');
+
+    document.querySelector('#toastButton').addEventListener('click', () => {
+      showToast('모듈형 UI 연결 테스트 완료');
+    });
+  </script>
+</body>
+</html>
