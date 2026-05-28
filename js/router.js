@@ -1,5 +1,6 @@
 import { renderDashboardSummary } from './dashboard.js';
 import { renderReportList } from './report-view.js';
+import { renderProgramView } from './program-view.js';
 import { readCollection } from './storage.js';
 
 export function renderRoute(routeId, targetSelector = '#contentContainer') {
@@ -20,7 +21,7 @@ export function renderRoute(routeId, targetSelector = '#contentContainer') {
   }
 
   if (routeId === 'projects') {
-    renderSimpleCollection(target, '사업관리', 'projects', ['unitTask', 'name', 'status']);
+    renderProgramView(targetSelector);
     return;
   }
 
