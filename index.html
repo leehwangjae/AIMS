@@ -193,6 +193,17 @@ body{font-family:var(--font);background:var(--bg);color:var(--text);min-height:1
 .dm-item.danger{color:var(--red)}
 .dm-item.danger:hover{background:var(--red-l)}
 .dm-sep{height:1px;background:var(--border);margin:4px 0}
+/* ── ACTION BUTTONS (항상 보임) ── */
+.abtn{display:inline-flex;align-items:center;gap:3px;padding:4px 10px;border-radius:5px;font-size:12px;font-family:var(--font);cursor:pointer;font-weight:500;white-space:nowrap;transition:all .15s;border:1px solid transparent}
+.abtn-edit{background:#e6f1fb;color:#185fa5;border-color:#b8d4f0}
+.abtn-edit:hover{background:#185fa5;color:#fff}
+.abtn-del{background:#fcebeb;color:#a32d2d;border-color:#f0b8b8}
+.abtn-del:hover{background:#a32d2d;color:#fff}
+.abtn-green{background:#e1f5ee;color:#0f6e56;border-color:#a8dece}
+.abtn-green:hover{background:#0f6e56;color:#fff}
+.abtn-wrap{display:flex;gap:4px;flex-wrap:wrap}
+/* ── DELAY REASON ── */
+.delay-reason{font-size:11px;color:#a32d2d;background:#fcebeb;border-radius:4px;padding:2px 7px;margin-top:3px;display:inline-block}
 /* ── PERMISSION HINT ── */
 .perm-hint{display:flex;align-items:center;gap:6px;padding:8px 12px;background:var(--orange-l);border-radius:var(--r-md);font-size:12px;color:var(--orange);margin-bottom:10px}
 </style>
@@ -281,9 +292,9 @@ body{font-family:var(--font);background:var(--bg);color:var(--text);min-height:1
     <div class="fgf"><label class="fl">업무명</label><input class="fi" id="t_title" placeholder="업무 내용을 입력하세요"></div>
     <div><label class="fl">담당자</label><input class="fi" id="t_who" placeholder="홍길동" readonly></div>
     <div><label class="fl">마감일</label><input class="fi" id="t_due" type="date"></div>
-    <div><label class="fl">상태</label><select class="fi" id="t_stat"><option>예정</option><option>진행중</option><option>완료</option><option>지연</option></select></div>
-    <div><label class="fl">진행률 (%)</label><input class="fi" id="t_prog" type="number" min="0" max="100" value="0"></div>
+    <div><label class="fl">상태</label><select class="fi" id="t_stat" onchange="togDelay()"><option>예정</option><option>진행중</option><option>완료</option><option>지연</option></select></div>
     <div><label class="fl">업무구분</label><select class="fi" id="t_type" onchange="togInd()"><option value="일반행정">일반행정</option><option value="정량지표">정량지표</option><option value="정성지표">정성지표</option></select></div>
+    <div class="fgf" id="delayWrap" style="display:none"><label class="fl">⚠ 지연 사유</label><textarea class="fi" id="t_delay" rows="2" placeholder="지연 사유를 입력하세요..." style="resize:vertical"></textarea></div>
     <div class="fgf" id="indWrap" style="display:none"><div style="background:var(--surface2);border-radius:var(--r-md);padding:10px 12px;border:1px solid var(--border)"><label class="fl"><i class="ti ti-link"></i> 연계 성과지표</label><select class="fi" id="t_ind" style="margin-top:2px"><option value="">-- 선택 --</option></select></div></div>
   </div></div>
   <div class="mft"><button class="mcx" onclick="cm('mTask')">취소</button><button class="mok" onclick="svTask()">저장</button></div>
@@ -548,7 +559,7 @@ function renderAdminUserList(){
       </div>
       <div style="display:flex;gap:6px;align-items:center">
         ${u.role!=='master'&&!isSelf?`<button class="btn btn-sm ${u.isAdmin?'btn-outline':'btn-primary'}" onclick="toggleAdmin('${u.id}')" title="${u.isAdmin?'관리자 권한 해제':'관리자 권한 부여'}">${u.isAdmin?'<i class="ti ti-shield-off"></i> 권한 해제':'<i class="ti ti-shield-check"></i> 권한 부여'}</button>`:''}
-        ${u.role!=='master'&&!isSelf?`<button class="btn btn-sm" style="background:var(--red-l);color:var(--red)" onclick="deleteUser('${u.id}')"><i class="ti ti-trash"></i></button>`:''}
+        ${u.role!=='master'&&!isSelf?`<button class="abtn abtn-del" onclick="deleteUser('${u.id}')"><i class="ti ti-trash"></i></button>`:''}
       </div>
     </div>`;
   });
@@ -724,6 +735,17 @@ function showToast(msg,type=''){
   _toastTimer=setTimeout(()=>t.classList.remove('show'),2500);
 }
 
+// ── 마감일 자동 지연 처리 ──
+function autoUpdateDelay(){
+  const today=new Date().toISOString().split('T')[0];
+  let changed=false;
+  tasks.forEach(t=>{
+    if(t.due&&t.due<today&&t.stat!=='완료'&&t.stat!=='지연'){
+      t.stat='지연';changed=true;
+    }
+  });
+  if(changed){sv('tasks',tasks);}
+}
 function go(tab){
   ['task','ind','bud','personal','schedule','report'].forEach(t=>document.getElementById('tab-'+t).style.display=t===tab?'block':'none');
   document.querySelectorAll('.nb').forEach((b,i)=>b.classList.toggle('on',['task','ind','bud','personal','schedule','report'][i]===tab));
@@ -736,6 +758,7 @@ function om(id){document.getElementById(id).classList.add('on');}
 //  TASK TAB
 // ══════════════════════════════════════════════════
 function rtTask(){
+  autoUpdateDelay();
   const ft=taskFlt==='전체'?tasks:tasks.filter(t=>t.unit===taskFlt);
   const done=ft.filter(t=>t.stat==='완료').length,late=ft.filter(t=>t.stat==='지연').length,qc=ft.filter(t=>t.type==='정량지표').length;
   let h=`<div class="kpi-row">
@@ -798,7 +821,7 @@ function rtInd(){
         <td style="text-align:right;font-weight:600;font-size:11.5px;color:${r!==null&&i.a26>0?ac(r):'var(--text2)'}">${i.a26>0?fmt(i.a26)+i.ul:'-'}</td>
         <td>${r!==null&&i.a26>0?`<span style="font-size:11.5px;font-weight:600;color:${ac(r)}">${r}%</span>`:`<span style="font-size:11px;color:var(--text3)">-</span>`}</td>
         <td>${r!==null?`<div class="minibar"><div class="mbf" style="width:${Math.min(r,100)}%;background:${ac(r||0)}"></div></div><div style="font-size:9.5px;color:var(--text2);margin-top:1px">${i.a25>0?'전년 '+pct(i.a25,i.t25)+'%':'-'}</div>`:''}</td>
-        <td>${isAdmin()?`<button class="ib ib-edit" style="color:#185fa5" onclick="opInd('${i.id}')" title="실적입력/수정"><i class="ti ti-edit"></i></button>`:`<i class="ti ti-lock" style="font-size:12px;color:var(--text3)"></i>`}</td>
+        <td>${isAdmin()?`<button class="abtn abtn-edit" onclick="opInd('${i.id}')"><i class="ti ti-edit"></i> 입력</button>`:`<span style="font-size:11px;color:var(--text3)">🔒</span>`}</td>
       </tr>`;
     });
     h+=`</tbody></table></div>`;
@@ -868,7 +891,7 @@ function rtBud(){
         <td style="text-align:right;font-size:12px;color:var(--text2)">${fmt(b.al-b.ex)}</td>
         <td><span style="font-size:12px;font-weight:600;color:${pc(r)}">${r}%</span></td>
         <td><div class="minibar"><div class="mbf" style="width:${r}%;background:${pc(r)}"></div></div></td>
-        <td>${isAdmin()?`<button class="ib ib-edit" onclick="opBud(${b.id})" title="수정"><i class="ti ti-edit"></i></button><button class="ib ib-del" onclick="delBud(${b.id})" title="삭제"><i class="ti ti-trash"></i></button>`:`<i class="ti ti-lock" style="font-size:12px;color:var(--text3)"></i>`}</td>
+        <td>${isAdmin()?`<div class="abtn-wrap"><button class="abtn abtn-edit" onclick="opBud(${b.id})"><i class="ti ti-edit"></i> 수정</button><button class="abtn abtn-del" onclick="delBud(${b.id})"><i class="ti ti-trash"></i> 삭제</button></div>`:`<span style="font-size:11px;color:var(--text3)">🔒</span>`}</td>
       </tr>`;
     });
     h+=`<tr style="background:${tbg}"><td colspan="3" style="font-size:12px;font-weight:600;color:${tc}">소계</td><td style="text-align:right;font-size:12px;font-weight:600;color:${tc}">${fmt(sa)}</td><td style="text-align:right;font-size:12px;font-weight:600;color:${tc}">${fmt(se)}</td><td style="text-align:right;font-size:12px;font-weight:600;color:${tc}">${fmt(sa-se)}</td><td colspan="3" style="font-size:12px;font-weight:600;color:${tc}">${sr}%</td></tr></tbody></table>`;
@@ -902,8 +925,8 @@ function rtPersonal(){
         <td style="font-size:11px;color:var(--text2)">${d.date}</td>
         <td style="font-size:12px">${d.who}</td>
         <td>${dss(d.stat)}</td>
-        <td>${fCount}${d.files&&d.files.length?`<button class="ib ib-green" onclick="viewFiles(${d.id})" title="파일 보기"><i class="ti ti-eye"></i></button>`:''}</td>
-        <td>${canEdit?`<button class="ib ib-edit" onclick="opDoc(${d.id})"><i class="ti ti-edit"></i></button><button class="ib ib-del" onclick="delDoc(${d.id})"><i class="ti ti-trash"></i></button>`:`<span style="color:var(--text3);font-size:10.5px">-</span>`}</td>
+        <td>${fCount}${d.files&&d.files.length?`<button class="abtn abtn-green" onclick="viewFiles(${d.id})"><i class="ti ti-download"></i> 다운</button>`:''}</td>
+        <td>${canEdit?`<div class="abtn-wrap"><button class="abtn abtn-edit" onclick="opDoc(${d.id})"><i class="ti ti-edit"></i> 수정</button><button class="abtn abtn-del" onclick="delDoc(${d.id})"><i class="ti ti-trash"></i> 삭제</button></div>`:`<span style="color:var(--text3);font-size:11px">-</span>`}</td>
       </tr>`;
     });
     h+=`</tbody></table></div>`;
@@ -921,7 +944,7 @@ function rtPersonal(){
         <td style="font-size:11px;color:var(--text2)">${r.due}</td>
         <td style="font-size:12px">${r.who}</td>
         <td>${wb(r.stat)}</td>
-        <td>${canEdit?`<button class="ib ib-edit" onclick="opRpt(${r.id})"><i class="ti ti-edit"></i></button><button class="ib ib-del" onclick="delRpt(${r.id})"><i class="ti ti-trash"></i></button>`:`<span style="color:var(--text3);font-size:10.5px">-</span>`}</td>
+        <td>${canEdit?`<div class="abtn-wrap"><button class="abtn abtn-edit" onclick="opRpt(${r.id})"><i class="ti ti-edit"></i> 수정</button><button class="abtn abtn-del" onclick="delRpt(${r.id})"><i class="ti ti-trash"></i> 삭제</button></div>`:`<span style="color:var(--text3);font-size:11px">-</span>`}</td>
       </tr>`;
     });
     h+=`</tbody></table></div>`;
@@ -958,7 +981,7 @@ function rtWkContent(){
     else ud.lastWeek.forEach(it=>{
       const tc=it.type==='정량지표'?'#534ab7':it.type==='정성지표'?'#0f6e56':'#73726c';
       const canDel=!it.ownerId||it.ownerId===currentUser?.id||isMaster();
-      h+=`<div class="wu-item"><span style="width:6px;height:6px;border-radius:50%;background:${tc};flex-shrink:0;margin-top:5px"></span><div style="flex:1;min-width:0"><div style="font-size:12.5px">${it.text}</div><div style="margin-top:2px">${tb(it.type)}<span style="font-size:10.5px;color:var(--text3);margin-left:5px">${it.who}</span></div></div>${canDel?`<button class="ib ib-del" onclick="delWkItem('${key}','${u}','lastWeek',${it.id})"><i class="ti ti-trash"></i></button>`:''}</div>`;
+      h+=`<div class="wu-item"><span style="width:6px;height:6px;border-radius:50%;background:${tc};flex-shrink:0;margin-top:5px"></span><div style="flex:1;min-width:0"><div style="font-size:12.5px">${it.text}</div><div style="margin-top:2px">${tb(it.type)}<span style="font-size:10.5px;color:var(--text3);margin-left:5px">${it.who}</span></div></div>${canDel?`<button class="abtn abtn-del" style="padding:3px 7px" onclick="delWkItem('${key}','${u}','lastWeek',${it.id})"><i class="ti ti-trash"></i></button>`:''}</div>`;
     });
     h+=`</div><div class="wu-div"></div><div class="wu-half">
         <div class="wu-htitle"><span style="color:#0f6e56"><i class="ti ti-calendar-event"></i> 차주 계획</span><button class="btn btn-sm btn-outline" style="color:#0f6e56;border-color:#0f6e56" onclick="opWkEdit('${u}','nextWeek')"><i class="ti ti-plus"></i></button></div>`;
@@ -966,7 +989,7 @@ function rtWkContent(){
     else ud.nextWeek.forEach(it=>{
       const tc=it.type==='정량지표'?'#534ab7':it.type==='정성지표'?'#0f6e56':'#73726c';
       const canDel=!it.ownerId||it.ownerId===currentUser?.id||isMaster();
-      h+=`<div class="wu-item"><span style="width:6px;height:6px;border-radius:50%;background:${tc};flex-shrink:0;margin-top:5px"></span><div style="flex:1;min-width:0"><div style="font-size:12.5px">${it.text}</div><div style="margin-top:2px">${tb(it.type)}<span style="font-size:10.5px;color:var(--text3);margin-left:5px">${it.who}</span></div></div>${canDel?`<button class="ib ib-del" onclick="delWkItem('${key}','${u}','nextWeek',${it.id})"><i class="ti ti-trash"></i></button>`:''}</div>`;
+      h+=`<div class="wu-item"><span style="width:6px;height:6px;border-radius:50%;background:${tc};flex-shrink:0;margin-top:5px"></span><div style="flex:1;min-width:0"><div style="font-size:12.5px">${it.text}</div><div style="margin-top:2px">${tb(it.type)}<span style="font-size:10.5px;color:var(--text3);margin-left:5px">${it.who}</span></div></div>${canDel?`<button class="abtn abtn-del" style="padding:3px 7px" onclick="delWkItem('${key}','${u}','nextWeek',${it.id})"><i class="ti ti-trash"></i></button>`:''}</div>`;
     });
     h+=`</div></div></div>`;
   });
@@ -1007,7 +1030,7 @@ function rtWeekCal(){
     const di=all.filter(i=>i.date===ds);const isT=ds===today;
     h+=`<div class="wk-day"><div class="wk-day-hd"><span style="font-size:13px;font-weight:${isT?'700':'400'};color:${isT?'#185fa5':'var(--text)'}">${days[d]} ${dt.getMonth()+1}/${dt.getDate()}${isT?' ✦':''}</span><span style="font-size:11.5px;color:var(--text2)">${di.length}건</span></div>`;
     if(!di.length)h+=`<div style="padding:7px 14px;font-size:12px;color:var(--text3);font-style:italic">일정 없음</div>`;
-    di.forEach(it=>h+=`<div class="wk-item"><span class="wk-dot" style="background:${it.color}"></span><span style="flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap" title="${it.label}">${it.label}</span><span style="font-size:10.5px;color:${it.color};background:${it.color}18;padding:1px 7px;border-radius:10px;flex-shrink:0">${it.unit}</span>${it.src==='event'?`<button class="ib ib-del" onclick="delEvt(${it.eid})"><i class="ti ti-trash"></i></button>`:''}</div>`);
+    di.forEach(it=>h+=`<div class="wk-item"><span class="wk-dot" style="background:${it.color}"></span><span style="flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap" title="${it.label}">${it.label}</span><span style="font-size:10.5px;color:${it.color};background:${it.color}18;padding:1px 7px;border-radius:10px;flex-shrink:0">${it.unit}</span>${it.src==='event'?`<button class="abtn abtn-del" style="padding:3px 7px" onclick="delEvt(${it.eid})"><i class="ti ti-trash"></i></button>`:''}</div>`);
     h+=`</div>`;
   }
   return h;
@@ -1154,13 +1177,17 @@ function opTask(id){
     const t=tasks.find(x=>x.id===id);
     if(t){document.getElementById('t_unit').value=t.unit;document.getElementById('t_field').value=t.field;document.getElementById('t_title').value=t.title;document.getElementById('t_who').value=t.who;document.getElementById('t_due').value=t.due;document.getElementById('t_stat').value=t.stat;document.getElementById('t_prog').value=t.prog;document.getElementById('t_type').value=t.type||'일반행정';togInd();if(t.type==='정량지표'){updInd();setTimeout(()=>document.getElementById('t_ind').value=t.iid||'',10);}}
   } else {
-    ['t_title','t_due'].forEach(i=>document.getElementById(i).value='');
+    ['t_title','t_due','t_delay'].forEach(i=>document.getElementById(i).value='');
     document.getElementById('t_who').value=currentUser?.name||'';
-    document.getElementById('t_prog').value=0;document.getElementById('t_stat').value='예정';document.getElementById('t_type').value='일반행정';document.getElementById('indWrap').style.display='none';
+    document.getElementById('t_stat').value='예정';document.getElementById('t_type').value='일반행정';document.getElementById('indWrap').style.display='none';document.getElementById('delayWrap').style.display='none';
   }
   om('mTask');
 }
 function togInd(){const t=document.getElementById('t_type').value;document.getElementById('indWrap').style.display=t==='정량지표'?'block':'none';if(t==='정량지표')updInd();}
+function togDelay(){
+  const s=document.getElementById('t_stat').value;
+  document.getElementById('delayWrap').style.display=s==='지연'?'block':'none';
+}
 function updInd(){const u=document.getElementById('t_unit').value;const s=document.getElementById('t_ind');s.innerHTML='<option value="">-- 선택 --</option>'+indicators.filter(i=>i.unit===u).map(i=>`<option value="${i.id}">${i.name} (${i.ul})</option>`).join('');}
 
 function opInd(id){
@@ -1224,10 +1251,11 @@ function opWkEdit(unit,sec,id){
 //  SAVERS
 // ══════════════════════════════════════════════════
 function svTask(){
-  const unit=document.getElementById('t_unit').value,field=document.getElementById('t_field').value,title=document.getElementById('t_title').value.trim(),who=document.getElementById('t_who').value.trim(),due=document.getElementById('t_due').value,stat=document.getElementById('t_stat').value,prog=parseInt(document.getElementById('t_prog').value)||0,type=document.getElementById('t_type').value,iid=type==='정량지표'?document.getElementById('t_ind').value:'';
+  const unit=document.getElementById('t_unit').value,field=document.getElementById('t_field').value,title=document.getElementById('t_title').value.trim(),who=document.getElementById('t_who').value.trim(),due=document.getElementById('t_due').value,stat=document.getElementById('t_stat').value,type=document.getElementById('t_type').value,iid=type==='정량지표'?document.getElementById('t_ind').value:'',delayReason=document.getElementById('t_delay').value.trim();
+  const prog=stat==='완료'?100:stat==='예정'?0:(editingTask?tasks.find(t=>t.id===editingTask)?.prog||0:0);
   if(!title||!who)return;
-  if(editingTask){const idx=tasks.findIndex(t=>t.id===editingTask);if(idx>-1)tasks[idx]={...tasks[idx],unit,field,title,who,due,stat,prog,type,iid};}
-  else tasks.push({id:Date.now(),unit,field,title,who,ownerId:currentUser?.id||'admin',due,stat,prog,type,iid});
+  if(editingTask){const idx=tasks.findIndex(t=>t.id===editingTask);if(idx>-1)tasks[idx]={...tasks[idx],unit,field,title,who,due,stat,prog,type,iid,delayReason};}
+  else tasks.push({id:Date.now(),unit,field,title,who,ownerId:currentUser?.id||'admin',due,stat,prog,type,iid,delayReason});
   sv('tasks',tasks);cm('mTask');rtTask();showToast('업무가 저장되었습니다');
 }
 
