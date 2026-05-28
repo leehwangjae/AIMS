@@ -3,67 +3,58 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>AIMS · Modular Preview</title>
+  <title>AIMS · Modular App</title>
 
   <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@tabler/icons-webfont@3.0.0/tabler-icons.min.css">
   <link rel="stylesheet" href="./css/style.css">
 </head>
 <body>
-  <header class="topbar">
-    <div class="tb-brand">
-      <div class="tb-logo">A</div>
-      <div class="tb-name">AIMS Modular Preview</div>
-    </div>
+  <div id="topbarContainer"></div>
 
-    <div class="tb-right">
-      <button class="btn btn-outline" id="toastButton">
-        <i class="ti ti-bell"></i>
-        Toast Test
-      </button>
-    </div>
-  </header>
-
-  <main class="main">
-    <section class="sc">
-      <div class="sch">
-        <div class="sct">모듈형 구조 미리보기</div>
-      </div>
-
-      <div class="scb">
-        <p style="font-size:13px;color:#6b7280;margin-bottom:16px;line-height:1.7;">
-          현재 페이지는 AIMS 시스템의 점진적 모듈화 리팩토링을 위한 Preview 화면입니다.
-          기존 index.html은 유지하면서, 신규 구조와 JS 모듈을 병행 검증하기 위한 목적입니다.
-        </p>
-
-        <div id="menuContainer" class="nav"></div>
-
-        <div id="dashboardSummary"></div>
-      </div>
-    </section>
+  <main class="main" style="padding:20px;max-width:1440px;margin:0 auto;">
+    <div id="loginContainer"></div>
+    <div id="appContainer"></div>
   </main>
 
   <script type="module">
-    import { login, getCurrentUser } from './js/auth.js';
+    import { getCurrentUser } from './js/auth.js';
     import { renderMenu } from './js/menu.js';
-    import { renderDashboardSummary } from './js/dashboard.js';
-    import { showToast } from './js/ui.js';
+    import { renderTopbar, renderPageLayout } from './js/layout.js';
+    import { renderLoginView, renderUserStatus } from './js/login-view.js';
+    import { renderRoute, bindMenuRouting } from './js/router.js';
+    import './js/app.js';
 
-    const previewUser = {
-      id: 'user_001',
-      name: '총괄관리자',
-      role: 'MASTER'
-    };
+    function initializeModularApp() {
+      renderTopbar('#topbarContainer');
 
-    login(previewUser);
+      const currentUser = getCurrentUser();
 
-    const currentUser = getCurrentUser();
+      if (!currentUser) {
+        renderLoginView('#loginContainer', user => {
+          startApplication(user);
+        });
 
-    renderMenu('#menuContainer', currentUser);
-    renderDashboardSummary('#dashboardSummary');
+        return;
+      }
 
-    document.querySelector('#toastButton').addEventListener('click', () => {
-      showToast('모듈형 UI 연결 테스트 완료');
-    });
+      startApplication(currentUser);
+    }
+
+    function startApplication(user) {
+      document.querySelector('#loginContainer').innerHTML = '';
+
+      renderPageLayout('#appContainer');
+      renderUserStatus('#userStatusContainer', () => {
+        location.reload();
+      });
+
+      renderMenu('#menuContainer', user, 'dashboard');
+      renderRoute('dashboard');
+
+      bindMenuRouting();
+    }
+
+    initializeModularApp();
   </script>
 </body>
 </html>
