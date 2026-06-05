@@ -36,8 +36,7 @@ export function renderPageLayout(targetSelector) {
       </aside>
 
       <section class="content-area">
-        <div id="dashboardSummary"></div>
-        <div id="reportContainer"></div>
+        <div id="contentContainer"></div>
       </section>
     </div>
   `;
