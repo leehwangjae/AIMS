@@ -1,115 +1,38 @@
 /* AIMS base stylesheet module
  * 기존 index.html 내 스타일을 단계적으로 이 파일로 이전하기 위한 기준 파일입니다.
- * Phase 2에서 index.html의 <style> 내용을 이 파일로 완전 분리합니다.
  */
-
 :root {
-  --bg: #f4f6fb;
-  --surface: #fff;
-  --surface2: #f8f9fc;
-  --text: #1a1d2e;
-  --text2: #6b7280;
-  --text3: #9ca3af;
-  --border: #e5e7eb;
-  --border2: #d1d5db;
-  --primary: #185fa5;
-  --primary-h: #1470bc;
-  --primary-l: #e6f1fb;
-  --green: #0f6e56;
-  --green-l: #e1f5ee;
-  --orange: #854f0b;
-  --orange-l: #faeeda;
-  --purple: #534ab7;
-  --purple-l: #eeedfe;
-  --red: #a32d2d;
-  --red-l: #fcebeb;
-  --r-sm: 5px;
-  --r-md: 8px;
-  --r-lg: 12px;
-  --r-xl: 16px;
-  --shadow: 0 2px 12px rgba(0, 0, 0, .08);
-  --shadow-lg: 0 8px 32px rgba(0, 0, 0, .14);
-  --font: -apple-system, BlinkMacSystemFont, 'Pretendard', 'Apple SD Gothic Neo', 'Noto Sans KR', sans-serif;
+  --bg:#f4f6fb;--surface:#fff;--surface2:#f8f9fc;--text:#1a1d2e;--text2:#6b7280;--border:#e5e7eb;--border2:#d1d5db;--primary:#185fa5;--primary-h:#1470bc;--r-md:8px;--r-lg:12px;--font:-apple-system,BlinkMacSystemFont,'Pretendard','Noto Sans KR',sans-serif;
 }
+*{box-sizing:border-box;margin:0;padding:0}
+body{font-family:var(--font);background:var(--bg);color:var(--text);min-height:100vh}
 
-* {
-  box-sizing: border-box;
-  margin: 0;
-  padding: 0;
-}
+.topbar{height:64px;background:#fff;border-bottom:1px solid var(--border);display:flex;align-items:center;justify-content:space-between;padding:0 24px}
+.tb-brand{display:flex;align-items:center;gap:12px;font-weight:700}
+.tb-logo{width:36px;height:36px;border-radius:10px;background:linear-gradient(135deg,#185fa5,#0f6e56);color:#fff;display:flex;align-items:center;justify-content:center}
+.tb-right{display:flex;align-items:center;gap:12px}
 
-body {
-  font-family: var(--font);
-  background: var(--bg);
-  color: var(--text);
-  min-height: 100vh;
-}
+.layout-grid{display:grid;grid-template-columns:240px 1fr;gap:20px;margin-top:20px}
+.sidebar{background:#fff;border:1px solid var(--border);border-radius:12px;padding:12px;min-height:700px}
+.sidebar button{width:100%;text-align:left;padding:10px 12px;border:none;background:none;border-radius:8px;cursor:pointer}
+.sidebar button.on{background:#e6f1fb;color:#185fa5;font-weight:600}
+.content-area{min-height:700px}
 
-.btn {
-  padding: 7px 14px;
-  border: none;
-  border-radius: var(--r-md);
-  cursor: pointer;
-  font-size: 12px;
-  font-family: var(--font);
-  display: inline-flex;
-  align-items: center;
-  gap: 5px;
-  transition: all .15s;
-  font-weight: 500;
-}
+.sc{background:#fff;border:1px solid var(--border);border-radius:12px;margin-bottom:16px;box-shadow:0 1px 4px rgba(0,0,0,.04)}
+.sch{padding:14px 16px;border-bottom:1px solid var(--border)}
+.sct{font-weight:700}
+.scb{padding:16px}
 
-.btn-primary {
-  background: var(--primary);
-  color: #fff;
-}
+.form-grid{display:grid;grid-template-columns:repeat(2,minmax(200px,1fr));gap:12px}
+.form-field{display:flex;flex-direction:column;gap:6px;font-size:13px}
+.form-field input,.form-field select{padding:10px;border:1px solid var(--border2);border-radius:8px}
+.form-actions{display:flex;gap:8px;align-items:center;margin-top:12px}
 
-.btn-primary:hover {
-  background: var(--primary-h);
-}
+.btn{padding:8px 14px;border:none;border-radius:8px;cursor:pointer}
+.btn-primary{background:var(--primary);color:#fff}.btn-primary:hover{background:var(--primary-h)}
+.btn-outline{background:#fff;border:1px solid var(--border2)}
 
-.btn-outline {
-  background: none;
-  border: 1px solid var(--border2);
-  color: var(--text2);
-}
-
-.btn-outline:hover {
-  border-color: var(--primary);
-  color: var(--primary);
-  background: var(--primary-l);
-}
-
-.sc {
-  background: var(--surface);
-  border: 1px solid var(--border);
-  border-radius: var(--r-lg);
-  margin-bottom: 1rem;
-  box-shadow: 0 1px 4px rgba(0, 0, 0, .04);
-}
-
-.tbl {
-  width: 100%;
-  border-collapse: collapse;
-  font-size: 12px;
-}
-
-.tbl th {
-  padding: 8px 9px;
-  border-bottom: 1px solid var(--border);
-  color: var(--text2);
-  font-weight: 500;
-  font-size: 11px;
-  text-align: left;
-  background: var(--surface2);
-}
-
-.tbl td {
-  padding: 7px 9px;
-  border-bottom: 1px solid var(--border);
-  vertical-align: middle;
-}
-
-.hidden {
-  display: none !important;
-}
+.tbl{width:100%;border-collapse:collapse;font-size:12px}.tbl th,.tbl td{padding:10px;border-bottom:1px solid var(--border);text-align:left}.tbl th{background:var(--surface2)}
+.empty-state{text-align:center;padding:40px;color:var(--text2)}
+.kpi{background:#fff;border:1px solid var(--border);border-radius:12px;padding:16px}.kl{font-size:12px;color:var(--text2)}.kv{font-size:24px;font-weight:700;margin-top:8px}
+.hidden{display:none!important}
