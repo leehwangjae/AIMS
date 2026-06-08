@@ -31,12 +31,31 @@ export function renderKpiDetailView(targetSelector, unitTaskId = '1-1') {
               <th>증빙상태</th>
               <th>최종수정일</th>
               <th>비고</th>
+              <th>관리</th>
             </tr>
           </thead>
           <tbody>
             ${kpis.map((kpi, index) => renderKpiDetailRow(kpi, unitTaskId, index)).join('')}
           </tbody>
         </table>
+      </div>
+    </section>
+
+    <section class="sc">
+      <div class="sch"><div class="sct">증빙자료 관리</div></div>
+      <div class="scb evidence-panel">
+        <div class="evidence-card">
+          <strong>증빙자료 등록</strong>
+          <p>KPI별 결과보고서, 출석부, 명단, 만족도 조사, 협약서 등을 연결하는 영역입니다.</p>
+        </div>
+        <div class="evidence-card">
+          <strong>수정이력 관리</strong>
+          <p>목표값, 실적값, 증빙자료 변경 이력을 기록하는 영역입니다.</p>
+        </div>
+        <div class="evidence-card">
+          <strong>AI 보고서 연계</strong>
+          <p>추후 KPI와 증빙자료를 기반으로 실적보고서 초안을 생성합니다.</p>
+        </div>
       </div>
     </section>
   `;
@@ -58,6 +77,13 @@ function renderKpiDetailRow(kpi, unitTaskId, index) {
       <td><span class="evidence-pill ${status.className}">${status.label}</span></td>
       <td>${getUpdatedAt(index)}</td>
       <td>${getMemo(rate)}</td>
+      <td>
+        <div class="kpi-actions">
+          <button class="mini-btn">수정</button>
+          <button class="mini-btn">증빙</button>
+          <button class="mini-btn">이력</button>
+        </div>
+      </td>
     </tr>
   `;
 }
