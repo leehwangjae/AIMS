@@ -2,6 +2,7 @@ import { renderDashboardSummary } from './dashboard.js';
 import { renderReportList } from './report-view.js';
 import { renderProgramView } from './program-view.js';
 import { renderKpiDetailView } from './kpi-view.js';
+import { renderAnnualLeaveView } from './annual-leave-view.js';
 import { readCollection } from './storage.js';
 
 const KPI_ROUTE_MAP = {
@@ -27,6 +28,11 @@ export function renderRoute(routeId, targetSelector = '#contentContainer') {
     return;
   }
 
+  if (routeId === 'leave-management') {
+    renderAnnualLeaveView(targetSelector);
+    return;
+  }
+
   if (routeId === 'reports') {
     target.innerHTML = '<div id="reportContainer"></div>';
     renderReportList('#reportContainer');
@@ -34,7 +40,7 @@ export function renderRoute(routeId, targetSelector = '#contentContainer') {
   }
 
   if (routeId.startsWith('business-')) {
-    renderProgramView(targetSelector);
+    renderProgramView(targetSelector, routeId);
     return;
   }
 
