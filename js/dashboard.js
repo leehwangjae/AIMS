@@ -4,6 +4,14 @@ import {
   BUDGET_EXECUTION,
   calculateAchievementRate
 } from '../data/kpi-data.js';
+import { renderRoute } from './router.js';
+
+const KPI_ROUTE_MAP = {
+  '1-1': 'kpi-1-1',
+  '1-2': 'kpi-1-2',
+  '1-3': 'kpi-1-3',
+  '2-1-ai': 'kpi-2-1-ai'
+};
 
 export function renderDashboardSummary(targetSelector) {
   const target = document.querySelector(targetSelector);
@@ -51,6 +59,7 @@ export function renderDashboardSummary(targetSelector) {
   `;
 
   bindUnitTabs();
+  bindDashboardKpiDetail();
   renderSelectedUnitKpi('1-1');
 }
 
@@ -72,6 +81,28 @@ function bindUnitTabs() {
   });
 }
 
+function bindDashboardKpiDetail() {
+  const target = document.querySelector('#selectedUnitKpi');
+
+  if (!target) return;
+
+  target.addEventListener('click', event => {
+    const button = event.target.closest('[data-kpi-detail-unit]');
+
+    if (!button) return;
+
+    const routeId = KPI_ROUTE_MAP[button.dataset.kpiDetailUnit];
+
+    if (!routeId) return;
+
+    document.querySelectorAll('[data-menu-id]').forEach(item => {
+      item.classList.toggle('on', item.dataset.menuId === routeId);
+    });
+
+    renderRoute(routeId, '#contentContainer');
+  });
+}
+
 function renderSelectedUnitKpi(unitTaskId) {
   const target = document.querySelector('#selectedUnitKpi');
   const unit = UNIT_TASKS.find(item => item.id === unitTaskId);
@@ -89,6 +120,7 @@ function renderSelectedUnitKpi(unitTaskId) {
         <h3>${unit.name}</h3>
         <p>${unit.description}</p>
       </div>
+      <button class="btn btn-primary" data-kpi-detail-unit="${unitTaskId}">상세관리</button>
     </div>
 
     <table class="tbl kpi-table">
