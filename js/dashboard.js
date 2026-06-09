@@ -48,18 +48,6 @@ export function renderDashboardSummary(targetSelector) {
         </div>
       </div>
     </section>
-
-    <section class="sc">
-      <div class="sch">
-        <div class="sct">AI 업무센터</div>
-      </div>
-      <div class="scb ai-action-grid">
-        <button class="btn btn-outline">성과보고서 생성</button>
-        <button class="btn btn-outline">사업계획서 생성</button>
-        <button class="btn btn-outline">회의자료 생성</button>
-        <button class="btn btn-outline">심사 Q&A 생성</button>
-      </div>
-    </section>
   `;
 
   bindUnitTabs();
