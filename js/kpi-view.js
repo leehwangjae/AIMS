@@ -1,9 +1,10 @@
-import { UNIT_TASKS, KPI_DEFINITIONS, calculateAchievementRate } from '../data/kpi-data.js';
+import { UNIT_TASKS } from '../data/kpi-data.js';
+import { getAutoKpis } from './kpi-calc.js';
 
 export function renderKpiDetailView(targetSelector, unitTaskId = '1-1') {
   const target = document.querySelector(targetSelector);
   const unit = UNIT_TASKS.find(item => item.id === unitTaskId);
-  const kpis = KPI_DEFINITIONS[unitTaskId] || [];
+  const kpis = getAutoKpis(unitTaskId);
 
   if (!target || !unit) return;
 
@@ -12,7 +13,7 @@ export function renderKpiDetailView(targetSelector, unitTaskId = '1-1') {
       <div class="scb">
         <div class="eyebrow">KPI Detail</div>
         <h2 class="page-title">${unit.name} KPI 상세관리</h2>
-        <p class="page-desc">KPI별 목표, 실적, 달성률, 담당자, 증빙상태, 비고를 관리합니다.</p>
+        <p class="page-desc">사업관리 데이터와 연계하여 KPI 실적, 달성률, 산출근거를 자동 계산합니다.</p>
       </div>
     </section>
 
@@ -25,58 +26,46 @@ export function renderKpiDetailView(targetSelector, unitTaskId = '1-1') {
               <th>KPI</th>
               <th>구분</th>
               <th>목표</th>
-              <th>실적</th>
+              <th>자동산출 실적</th>
               <th>달성률</th>
-              <th>담당자</th>
+              <th>산출방식</th>
               <th>증빙상태</th>
-              <th>최종수정일</th>
               <th>비고</th>
               <th>관리</th>
             </tr>
           </thead>
           <tbody>
-            ${kpis.map((kpi, index) => renderKpiDetailRow(kpi, unitTaskId, index)).join('')}
+            ${kpis.map(kpi => renderKpiDetailRow(kpi, unitTaskId)).join('')}
           </tbody>
         </table>
       </div>
     </section>
 
     <section class="sc">
-      <div class="sch"><div class="sct">증빙자료 관리</div></div>
-      <div class="scb evidence-panel">
-        <div class="evidence-card">
-          <strong>증빙자료 등록</strong>
-          <p>KPI별 결과보고서, 출석부, 명단, 만족도 조사, 협약서 등을 연결하는 영역입니다.</p>
-        </div>
-        <div class="evidence-card">
-          <strong>수정이력 관리</strong>
-          <p>목표값, 실적값, 증빙자료 변경 이력을 기록하는 영역입니다.</p>
-        </div>
-        <div class="evidence-card">
-          <strong>AI 보고서 연계</strong>
-          <p>추후 KPI와 증빙자료를 기반으로 실적보고서 초안을 생성합니다.</p>
-        </div>
+      <div class="sch"><div class="sct">KPI 산출근거</div></div>
+      <div class="scb">
+        ${renderKpiSources(kpis)}
       </div>
     </section>
   `;
 }
 
-function renderKpiDetailRow(kpi, unitTaskId, index) {
-  const rate = calculateAchievementRate(kpi);
-  const status = getStatus(rate);
+function renderKpiDetailRow(kpi, unitTaskId) {
+  const rate = kpi.rate;
+  const status = getStatus(kpi);
   const displayRate = rate === null ? '입력대기' : `${rate}%`;
+  const displayActual = kpi.actual === null || kpi.actual === undefined ? '입력대기' : `${kpi.actual}${kpi.unit}`;
 
   return `
     <tr>
       <td>${kpi.name}</td>
       <td><span class="badge ${kpi.type === '필수' ? 'badge-required' : 'badge-optional'}">${kpi.type}</span></td>
       <td>${kpi.target}${kpi.unit}</td>
-      <td>${kpi.actual}${kpi.unit}</td>
+      <td>${displayActual}</td>
       <td>${displayRate}</td>
-      <td>${getManager(unitTaskId)}</td>
+      <td>${kpi.sourceType || '기본값'}</td>
       <td><span class="evidence-pill ${status.className}">${status.label}</span></td>
-      <td>${getUpdatedAt(index)}</td>
-      <td>${getMemo(rate)}</td>
+      <td>${getMemo(kpi)}</td>
       <td>
         <div class="kpi-actions">
           <button class="mini-btn">수정</button>
@@ -88,29 +77,68 @@ function renderKpiDetailRow(kpi, unitTaskId, index) {
   `;
 }
 
-function getManager(unitTaskId) {
-  const managers = {
-    '1-1': '미래인재양성팀',
-    '1-2': '미래인재양성팀',
-    '1-3': '창업지원 담당',
-    '2-1-ai': 'AI사업 담당'
-  };
-  return managers[unitTaskId] || '담당자 미지정';
+function renderKpiSources(kpis) {
+  const rows = kpis.flatMap(kpi => {
+    if (!kpi.sources?.length) {
+      return [{ kpi: kpi.name, source: '-', value: '-', evidence: '산출근거 없음' }];
+    }
+
+    return kpi.sources.map(source => ({
+      kpi: kpi.name,
+      source: source.name || source.studentName || source.programName || source.department || '산출항목',
+      value: source.value ?? source.participants ?? 1,
+      evidence: getEvidenceText(source)
+    }));
+  });
+
+  return `
+    <table class="tbl">
+      <thead>
+        <tr>
+          <th>KPI</th>
+          <th>산출항목</th>
+          <th>반영값</th>
+          <th>증빙</th>
+        </tr>
+      </thead>
+      <tbody>
+        ${rows.map(row => `
+          <tr>
+            <td>${row.kpi}</td>
+            <td>${row.source}</td>
+            <td>${row.value}</td>
+            <td>${row.evidence}</td>
+          </tr>
+        `).join('')}
+      </tbody>
+    </table>
+  `;
 }
 
-function getStatus(rate) {
-  if (rate === null) return { label: '입력 필요', className: 'need' };
-  if (rate < 80) return { label: '보완 필요', className: 'warn' };
+function getEvidenceText(source) {
+  if (source.hasPlan || source.hasResultReport) {
+    const plan = source.hasPlan === 'Y' ? '계획서 O' : '계획서 X';
+    const result = source.hasResultReport === 'Y' ? '결과보고서 O' : '결과보고서 X';
+    return `${plan} / ${result}`;
+  }
+
+  if (source.target) return `목표 ${source.target}`;
+  return '명단/원자료 기준';
+}
+
+function getStatus(kpi) {
+  if (!kpi.sources?.length && (kpi.actual === null || kpi.actual === undefined || kpi.actual === 0)) {
+    return { label: '입력 필요', className: 'need' };
+  }
+
+  if (kpi.rate === null) return { label: '확인 필요', className: 'need' };
+  if (kpi.rate < 80) return { label: '보완 필요', className: 'warn' };
   return { label: '정상', className: 'ok' };
 }
 
-function getUpdatedAt(index) {
-  const dates = ['2026-06-08', '2026-06-05', '2026-06-03', '2026-06-01'];
-  return dates[index % dates.length];
-}
-
-function getMemo(rate) {
-  if (rate === null) return '목표 또는 실적 입력 필요';
-  if (rate < 80) return '실적 보완 및 증빙 확인 필요';
-  return '정상 관리';
+function getMemo(kpi) {
+  if (!kpi.sources?.length) return '사업관리 데이터 또는 원자료 입력 필요';
+  if (kpi.rate === null) return '목표 또는 산출값 확인 필요';
+  if (kpi.rate < 80) return '실적 보완 및 증빙 확인 필요';
+  return '자동산출 정상 반영';
 }
