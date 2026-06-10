@@ -163,41 +163,64 @@ function renderAccrualTable() {
   const target = document.querySelector(`#${ACCRUAL_TABLE_ID}`);
   if (!target) return;
   const staff = getCollection('leaveStaff');
-  const rows = staff.flatMap(item => buildAccrualRows(item));
-  if (!rows.length) return target.innerHTML = createEmptyState({ title: '연차 발생이력 없음', description: '발생된 연차가 없습니다.' });
+  if (!staff.length) return target.innerHTML = createEmptyState({ title: '연차 발생이력 없음', description: '전담인력을 먼저 등록해 주세요.' });
 
-  target.innerHTML = createTable({ columns: [
-    { key: 'name', label: '이름' },
-    { key: 'date', label: '발생일' },
-    { key: 'type', label: '구분' },
-    { key: 'days', label: '발생일수' },
-    { key: 'memo', label: '비고' }
-  ], rows });
+  target.innerHTML = renderStaffDropdowns(staff, item => {
+    const rows = buildAccrualRows(item);
+    if (!rows.length) return createEmptyState({ title: '발생이력 없음', description: '아직 발생된 연차가 없습니다.' });
+    return createTable({ columns: [
+      { key: 'date', label: '발생일' },
+      { key: 'type', label: '구분' },
+      { key: 'days', label: '발생일수' },
+      { key: 'memo', label: '비고' }
+    ], rows });
+  });
 }
 
 function renderHistoryTable() {
   const target = document.querySelector(`#${HISTORY_TABLE_ID}`);
   if (!target) return;
   const staff = getCollection('leaveStaff');
-  const usage = getCollection('leaveUsage');
-  if (!usage.length) return target.innerHTML = createEmptyState({ title: '연차 사용이력 없음', description: '등록된 연차 사용내역이 없습니다.' });
+  if (!staff.length) return target.innerHTML = createEmptyState({ title: '연차 사용이력 없음', description: '전담인력을 먼저 등록해 주세요.' });
 
-  const rows = usage.map(item => {
-    const person = staff.find(staffItem => staffItem.id === item.staffId);
-    return {
-      name: person?.name || '알 수 없음',
-      useDate: item.useDate,
-      days: item.days,
-      memo: item.memo
-    };
+  target.innerHTML = renderStaffDropdowns(staff, item => {
+    const rows = getCollection('leaveUsage')
+      .filter(usage => usage.staffId === item.id)
+      .map(usage => ({ useDate: usage.useDate, days: usage.days, memo: usage.memo }));
+
+    if (!rows.length) return createEmptyState({ title: '사용이력 없음', description: '등록된 연차 사용내역이 없습니다.' });
+
+    return createTable({ columns: [
+      { key: 'useDate', label: '사용일자' },
+      { key: 'days', label: '사용일수' },
+      { key: 'memo', label: '사유' }
+    ], rows });
   });
+}
 
-  target.innerHTML = createTable({ columns: [
-    { key: 'name', label: '이름' },
-    { key: 'useDate', label: '사용일자' },
-    { key: 'days', label: '사용일수' },
-    { key: 'memo', label: '사유' }
-  ], rows });
+function renderStaffDropdowns(staff, renderContent) {
+  return `
+    <div class="leave-dropdown-list">
+      ${staff.map((item, index) => {
+        const accrued = calculateAccruedLeave(item);
+        const used = getUsedLeave(item.id);
+        const remaining = Math.max(accrued - used, 0);
+        return `
+          <details class="leave-dropdown" ${index === 0 ? 'open' : ''}>
+            <summary>
+              <strong>${item.name}</strong>
+              <span>발생 ${accrued}일</span>
+              <span>사용 ${used}일</span>
+              <span>잔여 ${remaining}일</span>
+            </summary>
+            <div class="leave-dropdown-body">
+              ${renderContent(item)}
+            </div>
+          </details>
+        `;
+      }).join('')}
+    </div>
+  `;
 }
 
 function calculateAccruedLeave(staff) {
