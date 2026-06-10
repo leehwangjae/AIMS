@@ -5,6 +5,8 @@ import { showToast } from './ui.js';
 import { UNIT_TASKS, KPI_DEFINITIONS } from '../data/kpi-data.js';
 
 const FORM_ID = 'programForm';
+const DEPT_FORM_ID = 'departmentForm';
+const DEPT_TABLE_ID = 'departmentTableContainer';
 const TABLE_ID = 'programTableContainer';
 const FACULTY_SUMMARY_ID = 'facultySummaryContainer';
 const EVIDENCE_SUMMARY_ID = 'evidenceSummaryContainer';
@@ -30,14 +32,15 @@ export function renderProgramView(targetSelector, routeId = 'business-1-1') {
       <div class="scb">
         <div class="eyebrow">Business Management</div>
         <h2 class="page-title">${unit.name} 사업관리</h2>
-        <p class="page-desc">졸업생, 프로그램, 참여교원, 참여기업, 증빙상태를 통합 관리합니다.</p>
+        <p class="page-desc">참여학과, 졸업생, 프로그램, 참여교원, 참여기업, 증빙상태를 통합 관리합니다.</p>
       </div>
     </section>
 
     <section class="sc">
       <div class="scb">
         <div class="unit-tabs business-tabs">
-          <button class="unit-tab on" data-business-tab="graduates">졸업생관리</button>
+          <button class="unit-tab on" data-business-tab="departments">참여학과</button>
+          <button class="unit-tab" data-business-tab="graduates">졸업생관리</button>
           <button class="unit-tab" data-business-tab="programs">프로그램관리</button>
           <button class="unit-tab" data-business-tab="faculty">참여교원</button>
           <button class="unit-tab" data-business-tab="evidence">증빙현황</button>
@@ -45,14 +48,17 @@ export function renderProgramView(targetSelector, routeId = 'business-1-1') {
       </div>
     </section>
 
-    <div data-business-panel="graduates">${createCard({ title: '졸업생 명단 관리', content: renderGraduateGuide(unitTaskId) })}</div>
+    <div data-business-panel="departments">${createCard({ title: '참여학과 등록', content: renderDepartmentForm(unitTaskId) })}${createCard({ title: '참여학과 현황', content: `<div id="${DEPT_TABLE_ID}"></div>` })}</div>
+    <div data-business-panel="graduates" class="hidden">${createCard({ title: '졸업생 명단 관리', content: renderGraduateGuide(unitTaskId) })}</div>
     <div data-business-panel="programs" class="hidden">${createCard({ title: '프로그램 등록', content: renderProgramForm(unitTaskId) })}${createCard({ title: '프로그램 목록 및 증빙상태', content: `<div id="${TABLE_ID}"></div>` })}</div>
     <div data-business-panel="faculty" class="hidden">${createCard({ title: '참여교원 실적 요약', content: `<div id="${FACULTY_SUMMARY_ID}"></div>` })}</div>
     <div data-business-panel="evidence" class="hidden">${createCard({ title: '증빙현황 요약', content: `<div id="${EVIDENCE_SUMMARY_ID}"></div>` })}</div>
   `;
 
   bindBusinessTabs();
+  bindDepartmentForm(unitTaskId);
   bindProgramForm(unitTaskId);
+  renderDepartmentTable(unitTaskId);
   renderProgramTable(unitTaskId);
   renderFacultySummary(unitTaskId);
   renderEvidenceSummary(unitTaskId);
@@ -68,6 +74,101 @@ function bindBusinessTabs() {
   });
 }
 
+function renderDepartmentForm(unitTaskId) {
+  return `
+    <form id="${DEPT_FORM_ID}" class="form-grid">
+      <input type="hidden" name="unitTaskId" value="${unitTaskId}" />
+      <label class="form-field"><span>학과명</span><input name="department" type="text" placeholder="예: 전기공학과" /></label>
+      <label class="form-field"><span>학부생 수</span><input name="bachelor" type="number" min="0" value="0" /></label>
+      <label class="form-field"><span>석사 수</span><input name="master" type="number" min="0" value="0" /></label>
+      <label class="form-field"><span>박사 수</span><input name="doctor" type="number" min="0" value="0" /></label>
+      <label class="form-field"><span>나노디그리 수</span><input name="nano" type="number" min="0" value="0" /></label>
+      <label class="form-field"><span>취업자 수</span><input name="employed" type="number" min="0" value="0" /></label>
+      <label class="form-field"><span>지역내 취업자 수</span><input name="localEmployed" type="number" min="0" value="0" /></label>
+      <div class="form-actions"><button class="btn btn-primary" type="submit">저장</button><button class="btn btn-outline" type="reset">초기화</button></div>
+    </form>
+  `;
+}
+
+function bindDepartmentForm(unitTaskId) {
+  const form = document.querySelector(`#${DEPT_FORM_ID}`);
+  if (!form) return;
+
+  form.addEventListener('submit', event => {
+    event.preventDefault();
+    const values = Object.fromEntries(new FormData(form).entries());
+    const required = validateRequired(values, ['department']);
+    if (!required.valid) return showToast('학과명을 입력해 주세요.');
+
+    const numbers = ['bachelor', 'master', 'doctor', 'nano', 'employed', 'localEmployed'];
+    if (numbers.some(key => !validateNumber(values[key], { min: 0 }).valid)) return showToast('인원 입력값을 확인해 주세요.');
+
+    upsertItem('departments', {
+      id: `dept_${Date.now()}`,
+      unitTaskId,
+      department: values.department,
+      bachelor: Number(values.bachelor),
+      master: Number(values.master),
+      doctor: Number(values.doctor),
+      nano: Number(values.nano),
+      employed: Number(values.employed),
+      localEmployed: Number(values.localEmployed)
+    });
+
+    showToast('참여학과가 저장되었습니다.');
+    form.reset();
+    renderDepartmentTable(unitTaskId);
+  });
+}
+
+function renderDepartmentTable(unitTaskId) {
+  const target = document.querySelector(`#${DEPT_TABLE_ID}`);
+  if (!target) return;
+  const rows = getCollection('departments').filter(row => row.unitTaskId === unitTaskId);
+  if (!rows.length) return target.innerHTML = createEmptyState({ title: '참여학과 없음', description: '참여학과를 등록해 주세요.' });
+
+  const displayRows = rows.map(row => ({
+    ...row,
+    weightedGraduates: calculateWeightedGraduates(row),
+    weightedEmployment: calculateWeightedEmployment(row),
+    employmentRate: calculateWeightedGraduates(row) ? `${Math.round((calculateWeightedEmployment(row) / calculateWeightedGraduates(row)) * 1000) / 10}%` : '0%'
+  }));
+
+  target.innerHTML = `
+    ${createTable({ columns: [
+      { key: 'department', label: '학과' },
+      { key: 'bachelor', label: '학부' },
+      { key: 'master', label: '석사' },
+      { key: 'doctor', label: '박사' },
+      { key: 'nano', label: '나노디그리' },
+      { key: 'weightedGraduates', label: '가중 인력양성' },
+      { key: 'employed', label: '취업자' },
+      { key: 'localEmployed', label: '지역내' },
+      { key: 'weightedEmployment', label: '가중 취업' },
+      { key: 'employmentRate', label: '가중 취업률' }
+    ], rows: displayRows })}
+    <div class="form-actions" style="margin-top:12px;"><button class="btn btn-outline" id="deleteLatestDepartment" type="button">최근 등록 학과 삭제</button></div>
+  `;
+
+  document.querySelector('#deleteLatestDepartment')?.addEventListener('click', () => {
+    const latest = rows.at(-1);
+    if (!latest) return;
+    removeItem('departments', latest.id);
+    showToast('최근 등록 학과가 삭제되었습니다.');
+    renderDepartmentTable(unitTaskId);
+  });
+}
+
+function calculateWeightedGraduates(row) {
+  return Math.round((Number(row.bachelor || 0) + Number(row.master || 0) * 1.5 + Number(row.doctor || 0) * 2 + Number(row.nano || 0) * 0.3) * 10) / 10;
+}
+
+function calculateWeightedEmployment(row) {
+  const local = Number(row.localEmployed || 0);
+  const outside = Math.max(Number(row.employed || 0) - local, 0);
+  return Math.round((local + outside * 0.5) * 10) / 10;
+}
+
 function renderGraduateGuide(unitTaskId) {
   const hasGraduateKpi = (KPI_DEFINITIONS[unitTaskId] || []).some(kpi => GRADUATE_KPI_NAMES.includes(kpi.name));
 
@@ -78,8 +179,8 @@ function renderGraduateGuide(unitTaskId) {
   return `
     <div class="evidence-panel">
       <div class="evidence-card"><strong>졸업생 명단 업로드</strong><p>인력양성 인원 KPI는 참여학과별 졸업생 엑셀 명단 기준으로 집계합니다.</p></div>
-      <div class="evidence-card"><strong>권장 컬럼</strong><p>학번, 성명, 학과, 졸업연월, 취업여부, 지역취업 여부</p></div>
-      <div class="evidence-card"><strong>향후 기능</strong><p>엑셀 업로드 후 졸업생 수와 취업률을 자동 계산합니다.</p></div>
+      <div class="evidence-card"><strong>권장 컬럼</strong><p>학번, 성명, 학과, 학위구분, 졸업연월, 취업여부, 지역취업 여부</p></div>
+      <div class="evidence-card"><strong>현재 반영</strong><p>참여학과 탭의 학부·석사·박사·나노디그리 인원 기준으로 가중치를 계산합니다.</p></div>
     </div>
   `;
 }
