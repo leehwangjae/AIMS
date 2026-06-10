@@ -1,31 +1,43 @@
 export const ROLES = {
-  MASTER: 'MASTER',
-  PROFESSOR: 'PROFESSOR',
+  TEAM_MANAGER: 'TEAM_MANAGER',
   STAFF: 'STAFF',
   VIEWER: 'VIEWER'
 };
 
-const ALL_ROLES = [ROLES.MASTER, ROLES.PROFESSOR, ROLES.STAFF, ROLES.VIEWER];
-const EDIT_ROLES = [ROLES.MASTER, ROLES.PROFESSOR, ROLES.STAFF];
+const ALL_ROLES = [ROLES.TEAM_MANAGER, ROLES.STAFF, ROLES.VIEWER];
+const EDIT_ROLES = [ROLES.TEAM_MANAGER, ROLES.STAFF];
+const MANAGER_ONLY = [ROLES.TEAM_MANAGER];
 
 export const MENU_PERMISSIONS = {
   default: ALL_ROLES,
   dashboard: ALL_ROLES,
 
-  'business-1-1': EDIT_ROLES,
-  'business-1-2': EDIT_ROLES,
-  'business-1-3': EDIT_ROLES,
-  'business-2-1-ai': EDIT_ROLES,
+  'business-1-1': ALL_ROLES,
+  'business-1-2': ALL_ROLES,
+  'business-1-3': ALL_ROLES,
+  'business-2-1-ai': ALL_ROLES,
 
   'kpi-1-1': ALL_ROLES,
   'kpi-1-2': ALL_ROLES,
   'kpi-1-3': ALL_ROLES,
   'kpi-2-1-ai': ALL_ROLES,
 
-  budgets: [ROLES.MASTER, ROLES.PROFESSOR],
+  budgets: ALL_ROLES,
+  files: ALL_ROLES,
+  incentives: ALL_ROLES,
+  'leave-management': EDIT_ROLES,
   reports: EDIT_ROLES,
   'ai-center': EDIT_ROLES,
-  settings: [ROLES.MASTER]
+  settings: MANAGER_ONLY
+};
+
+export const ACTION_PERMISSIONS = {
+  edit: EDIT_ROLES,
+  upload: EDIT_ROLES,
+  delete: EDIT_ROLES,
+  download: EDIT_ROLES,
+  budgetEdit: EDIT_ROLES,
+  manageUsers: MANAGER_ONLY
 };
 
 export const REPORT_STATUS = {
