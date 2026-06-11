@@ -46,7 +46,8 @@ function renderForm() {
     <form id="${FORM_ID}" class="form-grid">
       <label class="form-field"><span>단위과제</span><select name="unitTaskId" id="planUnitTaskId"><option value="1-1">1-1 전략산업</option><option value="1-2">1-2 스마트모빌리티</option><option value="1-3">1-3 혁신창업</option><option value="2-1-ai">2-1 AI인재양성</option></select></label>
       <label class="form-field"><span>프로그램명</span><input name="programName" type="text" placeholder="예: 초광역 K-Bio BootCamp" /></label>
-      <label class="form-field"><span>운영기간</span><input name="period" type="text" placeholder="예: 2026.7.1.~2026.7.3." /></label>
+      <label class="form-field"><span>운영 시작일</span><input name="startDate" type="date" /></label>
+      <label class="form-field"><span>운영 종료일</span><input name="endDate" type="date" /></label>
       <label class="form-field"><span>운영장소</span><input name="location" type="text" placeholder="예: 인천대학교, 송도 일원" /></label>
       <label class="form-field"><span>대상</span><input name="target" type="text" placeholder="예: 참여학과 재학생 및 재직자" /></label>
       <label class="form-field"><span>담당자</span><input name="manager" type="text" placeholder="예: 미래인재양성팀 홍길동" /></label>
@@ -92,7 +93,8 @@ function bindPlanDraftForm() {
   form.addEventListener('submit', event => {
     event.preventDefault();
     const values = Object.fromEntries(new FormData(form).entries());
-    if (!validateRequired(values, ['unitTaskId', 'programName', 'period', 'target', 'background', 'purpose', 'contents']).valid) return showToast('필수 입력 항목을 확인해 주세요.');
+    if (!validateRequired(values, ['unitTaskId', 'programName', 'startDate', 'endDate', 'target', 'background', 'purpose', 'contents']).valid) return showToast('필수 입력 항목을 확인해 주세요.');
+    if (values.startDate > values.endDate) return showToast('운영 종료일은 시작일 이후여야 합니다.');
     if (!validateNumber(values.budgetAmount, { min: 0 }).valid) return showToast('예산금액을 확인해 주세요.');
     if (!validateNumber(values.expectedRawValue, { min: 0 }).valid) return showToast('예상 원자료 실적을 확인해 주세요.');
 
@@ -119,7 +121,6 @@ function bindPlanDraftForm() {
 function createProgramFromDraft(values) {
   const exists = getCollection('programs').some(item => item.unitTaskId === values.unitTaskId && item.name === values.programName);
   if (exists) return;
-  const parsed = parsePeriod(values.period);
   upsertItem('programs', {
     id: `program_${Date.now()}`,
     unitTaskId: values.unitTaskId,
@@ -128,8 +129,8 @@ function createProgramFromDraft(values) {
     linkedKpi: values.linkedKpi,
     faculty: values.manager || '',
     companyNames: '',
-    startDate: parsed.startDate,
-    endDate: parsed.endDate,
+    startDate: values.startDate,
+    endDate: values.endDate,
     participants: Number(values.expectedRawValue || 0),
     budget: Number(values.budgetAmount || 0),
     hasPlan: 'N',
@@ -185,7 +186,7 @@ function updateKpiPerformanceOptions() {
   const select = document.querySelector(`#${KPI_TYPE_ID}`);
   if (!select) return;
   const options = getKpiPerformanceOptions(kpiName);
-  select.innerHTML = options.map(option => `<option value="${option.label}" data-guide="${option.guide}" data-weight="${option.weight}">${option.label}</option>`).join('');
+  select.innerHTML = options.map(option => `<option value="${option.label}" data-guide="${option.guide}" data-weight="${option.weight}" data-target="${option.target || ''}" data-component="${option.componentWeight || ''}">${option.label}</option>`).join('');
   updateKpiPerformanceGuide();
 }
 
@@ -203,7 +204,17 @@ function updateExpectedKpiResult() {
   const contributionTarget = document.querySelector(`#${KPI_CONTRIBUTION_ID}`);
   const select = document.querySelector(`#${KPI_TYPE_ID}`);
   if (!input || !resultTarget || !contributionTarget || !select) return;
+
   const raw = Number(input.value || 0);
+  const kpiName = document.querySelector(`#${KPI_SELECT_ID}`)?.value || '';
+
+  if (kpiName === '산학협력지수') {
+    const industry = calculateIndustryIndexComponent(raw);
+    resultTarget.value = industry.resultText;
+    contributionTarget.value = industry.contributionText;
+    return;
+  }
+
   const recognized = round1(raw * getSelectedWeight());
   const target = getSelectedKpiTarget();
   const contribution = target ? round1((recognized / target) * 100) : 0;
@@ -215,6 +226,30 @@ function getSelectedWeight() {
   const select = document.querySelector(`#${KPI_TYPE_ID}`);
   const option = select?.options?.[select.selectedIndex];
   return Number(option?.dataset?.weight || 1);
+}
+
+function getSelectedIndustryOption() {
+  const select = document.querySelector(`#${KPI_TYPE_ID}`);
+  const option = select?.options?.[select.selectedIndex];
+  return {
+    target: Number(option?.dataset?.target || 0),
+    componentWeight: Number(option?.dataset?.component || 0),
+    label: option?.value || ''
+  };
+}
+
+function calculateIndustryIndexComponent(rawValue) {
+  const option = getSelectedIndustryOption();
+  const componentTarget = option.target || 1;
+  const componentWeight = option.componentWeight || 0;
+  const achievementRate = round1((Number(rawValue || 0) / componentTarget) * 100);
+  const formulaContribution = round1((Number(rawValue || 0) / componentTarget) * componentWeight * 100);
+  return {
+    achievementRate,
+    formulaContribution,
+    resultText: `${option.label} 달성률 ${achievementRate}%`,
+    contributionText: `산식 기여 ${formulaContribution}%p`
+  };
 }
 
 function getSelectedKpiDefinition() {
@@ -235,7 +270,12 @@ function getKpiPerformanceOptions(kpiName) {
   if (kpiName.includes('인력양성')) return [{ label: '학부생', guide: '학부생 1명 = 1.0명 인정', weight: 1 }, { label: '석사', guide: '석사 1명 = 1.5명 인정', weight: 1.5 }, { label: '박사', guide: '박사 1명 = 2.0명 인정', weight: 2 }, { label: '나노디그리', guide: '나노디그리 1명 = 0.3명 인정', weight: 0.3 }];
   if (kpiName === '취업률') return [{ label: '지역내 취업', guide: '지역내 취업 1명 = 1.0명 인정', weight: 1 }, { label: '지역외 취업', guide: '지역외 취업 1명 = 0.5명 인정', weight: 0.5 }];
   if (kpiName.includes('캡스톤')) return [{ label: '일반', guide: '일반 캡스톤 1건 = 1.0건 인정', weight: 1 }, { label: '기업연계형', guide: '기업연계형 캡스톤 1건 = 1.5건 인정', weight: 1.5 }, { label: '융합형', guide: '융합형 캡스톤 1건 = 2.0건 인정', weight: 2 }, { label: '글로벌', guide: '글로벌 캡스톤 1건 = 2.0건 인정', weight: 2 }];
-  if (kpiName === '산학협력지수') return [{ label: 'A 교과목 개편', guide: '산업체 수요 기반 교과목 개편 수 / 5개년 목표 40', weight: 1 }, { label: 'B 기업참여형 캡스톤', guide: '기업멘토 참여 캡스톤 과제 수 / 연간 목표 23', weight: 1 }, { label: 'C 협력기업 MOU', guide: '전략산업분야 기업 MOU 누적 건수 / 5개년 목표 30', weight: 1 }, { label: 'D 재직자 교육과정', guide: '재직자 재교육 프로그램 누적 운영 횟수 / 5개년 목표 30', weight: 1 }];
+  if (kpiName === '산학협력지수') return [
+    { label: 'A 교과목 개편', guide: '산업체 수요 기반 교과목 개편 누적 수 / 5개년 목표 40 × 40%', weight: 1, target: 40, componentWeight: 0.4 },
+    { label: 'B 기업참여형 캡스톤', guide: '기업멘토 참여 캡스톤 과제 수 / 연간 목표 23 × 20%', weight: 1, target: 23, componentWeight: 0.2 },
+    { label: 'C 협력기업 MOU', guide: '전략산업분야 기업 MOU 누적 건수 / 5개년 목표 30 × 20%', weight: 1, target: 30, componentWeight: 0.2 },
+    { label: 'D 재직자 교육과정', guide: '재직자 재교육 프로그램 누적 운영 횟수 / 5개년 목표 30 × 20%', weight: 1, target: 30, componentWeight: 0.2 }
+  ];
   if (kpiName.includes('만족도')) return [{ label: '만족도 조사', guide: '프로그램 만족도 조사 결과 점수 반영', weight: 1 }];
   if (kpiName.includes('PBL')) return [{ label: 'PBL 과제', guide: 'PBL 지원 과제 1건 = 1건 인정', weight: 1 }];
   if (kpiName.includes('포럼') || kpiName.includes('세미나') || kpiName.includes('성과 교류회')) return [{ label: '포럼/세미나/성과교류회', guide: '운영 프로그램 1건 = 1건 인정', weight: 1 }];
@@ -282,19 +322,15 @@ function inferProgramType(kpiName, kpiType) {
   return '기타';
 }
 
-function parsePeriod(period) {
-  const dates = String(period || '').match(/\d{4}[.-]\d{1,2}[.-]\d{1,2}/g) || [];
-  return { startDate: normalizeDate(dates[0]), endDate: normalizeDate(dates[1] || dates[0]) };
-}
-
-function normalizeDate(value) {
-  if (!value) return '';
-  const parts = value.replaceAll('.', '-').split('-').filter(Boolean);
-  if (parts.length < 3) return '';
-  return `${parts[0]}-${parts[1].padStart(2, '0')}-${parts[2].padStart(2, '0')}`;
+function getPeriodText(values) {
+  return `${values.startDate || '미정'} ~ ${values.endDate || '미정'}`;
 }
 
 function getExpectedRecognized(values) {
+  if (values.linkedKpi === '산학협력지수') {
+    const raw = Number(values.expectedRawValue || 0);
+    return calculateIndustryIndexComponent(raw).formulaContribution;
+  }
   return round1(Number(values.expectedRawValue || 0) * getSelectedWeight());
 }
 
@@ -310,9 +346,18 @@ function buildDraft(values, selectedBudget) {
   const remainingText = selectedBudget ? formatWon(getBudgetRemaining(selectedBudget)) : '편성 예산 없음';
   const guideText = document.querySelector(`#${KPI_GUIDE_ID}`)?.value || '별도 인정기준 없음';
   const expectedRaw = Number(values.expectedRawValue || 0);
-  const expectedRecognized = getExpectedRecognized(values);
-  const target = getSelectedKpiTarget();
-  const contribution = target ? `${round1((expectedRecognized / target) * 100)}%` : '목표값 없음';
   const kpiUnit = getSelectedKpiUnit();
-  return `[사업계획 기안 초안]\n\n1. 추진배경\n${values.background}\n\n2. 추진목적\n${values.purpose}\n\n3. 운영개요\n- 단위과제: ${values.unitTaskId}\n- 프로그램명: ${values.programName}\n- 운영기간: ${values.period}\n- 운영장소: ${values.location || '미정'}\n- 운영대상: ${values.target}\n- 담당자: ${values.manager || '미정'}\n- 연계 KPI: ${values.linkedKpi || '미지정'}\n- KPI 실적유형: ${values.kpiPerformanceType || '미지정'}\n- KPI 인정기준: ${guideText}\n- KPI 목표값: ${target || '미설정'}${kpiUnit}\n- 예상 원자료 실적: ${expectedRaw}\n- 예상 KPI 인정 실적: ${expectedRecognized}${kpiUnit}\n- 예상 KPI 목표 기여도: ${contribution}\n\n4. 세부 추진내용\n${values.contents}\n\n5. 소요예산\n- 예산항목: ${values.budgetCategory || '미분류'}\n- 현재 잔액: ${remainingText}\n- 사용 예정 금액: ${Number(values.budgetAmount || 0).toLocaleString()}원\n- 산출내역/비고: ${values.budgetMemo || '세부 산출내역 별도 작성'}\n\n6. 기대효과\n${values.effect || '사업 추진을 통해 참여학생 역량 강화, 지역산업 연계 성과 창출 및 단위과제 KPI 달성에 기여할 것으로 기대됨.'}\n\n7. 향후계획\n- 세부 운영계획 확정\n- 참여자 모집 및 운영 준비\n- 프로그램 운영 후 결과보고서 및 증빙자료 등록\n- 연계 KPI 실적 반영 및 성과관리`; 
+  const periodText = getPeriodText(values);
+  const target = getSelectedKpiTarget();
+
+  let expectedText = `${getExpectedRecognized(values)}${kpiUnit}`;
+  let contributionText = target ? `${round1((getExpectedRecognized(values) / target) * 100)}%` : '목표값 없음';
+
+  if (values.linkedKpi === '산학협력지수') {
+    const industry = calculateIndustryIndexComponent(expectedRaw);
+    expectedText = `${industry.resultText} / ${industry.contributionText}`;
+    contributionText = '최종 KPI 12점 대비 단순 기여도 미산출(세부 산식 반영)';
+  }
+
+  return `[사업계획 기안 초안]\n\n1. 추진배경\n${values.background}\n\n2. 추진목적\n${values.purpose}\n\n3. 운영개요\n- 단위과제: ${values.unitTaskId}\n- 프로그램명: ${values.programName}\n- 운영기간: ${periodText}\n- 운영장소: ${values.location || '미정'}\n- 운영대상: ${values.target}\n- 담당자: ${values.manager || '미정'}\n- 연계 KPI: ${values.linkedKpi || '미지정'}\n- KPI 실적유형: ${values.kpiPerformanceType || '미지정'}\n- KPI 인정기준: ${guideText}\n- KPI 목표값: ${target || '미설정'}${kpiUnit}\n- 예상 원자료 실적: ${expectedRaw}\n- 예상 KPI 인정 실적: ${expectedText}\n- 예상 KPI 목표 기여도: ${contributionText}\n\n4. 세부 추진내용\n${values.contents}\n\n5. 소요예산\n- 예산항목: ${values.budgetCategory || '미분류'}\n- 현재 잔액: ${remainingText}\n- 사용 예정 금액: ${Number(values.budgetAmount || 0).toLocaleString()}원\n- 산출내역/비고: ${values.budgetMemo || '세부 산출내역 별도 작성'}\n\n6. 기대효과\n${values.effect || '사업 추진을 통해 참여학생 역량 강화, 지역산업 연계 성과 창출 및 단위과제 KPI 달성에 기여할 것으로 기대됨.'}\n\n7. 향후계획\n- 세부 운영계획 확정\n- 참여자 모집 및 운영 준비\n- 프로그램 운영 후 결과보고서 및 증빙자료 등록\n- 연계 KPI 실적 반영 및 성과관리`;
 }
