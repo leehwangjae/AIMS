@@ -23,6 +23,7 @@ const BUSINESS_ROUTE_MAP = {
 };
 
 const GRADUATE_KPI_NAMES = ['인력양성 인원', 'AI 인재양성 인원 수'];
+const REQUIRED_EVIDENCE = ['사업계획서', '결과보고서', '참석자명단'];
 
 export function renderProgramView(targetSelector, routeId = 'business-1-1') {
   const target = document.querySelector(targetSelector);
@@ -242,8 +243,96 @@ function renderProgramTable(unitTaskId) {
   if (!target) return;
   const programs = getUnitPrograms(unitTaskId);
   if (!programs.length) return target.innerHTML = createEmptyState({ title: '프로그램 없음', description: '등록된 프로그램이 없습니다.' });
-  target.innerHTML = `${createTable({ columns: [{ key: 'name', label: '프로그램명' }, { key: 'type', label: '구분' }, { key: 'linkedKpi', label: '연계 KPI' }, { key: 'participants', label: '참여/수료' }, { key: 'faculty', label: '참여교원' }, { key: 'companyNames', label: '참여기업' }, { key: 'hasPlan', label: '계획서' }, { key: 'hasResultReport', label: '결과보고서' }, { key: 'status', label: '상태' }], rows: programs.map(program => ({ ...program, hasPlan: program.hasPlan === 'Y' ? '첨부완료' : '미첨부', hasResultReport: program.hasResultReport === 'Y' ? '첨부완료' : '미첨부' })) })}<div class="form-actions" style="margin-top:12px;"><button class="btn btn-outline" id="deleteLatestProgram" type="button">최근 등록 프로그램 삭제</button></div>`;
+
+  const rows = programs.map(program => {
+    const evidence = getProgramEvidenceStatus(program);
+    return {
+      ...program,
+      statusLabel: getProgramStatusLabel(program.status),
+      hasPlan: program.hasPlan === 'Y' || evidence.planReady ? '첨부완료' : '미첨부',
+      hasResultReport: program.hasResultReport === 'Y' || evidence.resultReady ? '첨부완료' : '미첨부',
+      evidenceReady: evidence.ready ? '완비' : `보완필요(${evidence.readyCount}/${evidence.totalCount})`,
+      kpiReady: program.status === 'COMPLETED' && evidence.ready ? 'KPI 반영 가능' : '대기',
+      expectedRecognized: program.expectedRecognized ?? '-'
+    };
+  });
+
+  target.innerHTML = `
+    ${renderProgramStatusControls(programs)}
+    ${createTable({ columns: [
+      { key: 'name', label: '프로그램명' },
+      { key: 'type', label: '구분' },
+      { key: 'linkedKpi', label: '연계 KPI' },
+      { key: 'participants', label: '참여/수료' },
+      { key: 'expectedRecognized', label: '예상인정실적' },
+      { key: 'faculty', label: '참여교원' },
+      { key: 'companyNames', label: '참여기업' },
+      { key: 'hasPlan', label: '계획서' },
+      { key: 'hasResultReport', label: '결과보고서' },
+      { key: 'evidenceReady', label: '증빙상태' },
+      { key: 'kpiReady', label: 'KPI 반영' },
+      { key: 'statusLabel', label: '상태' }
+    ], rows })}
+    <div class="form-actions" style="margin-top:12px;"><button class="btn btn-outline" id="deleteLatestProgram" type="button">최근 등록 프로그램 삭제</button></div>`;
+
+  bindProgramStatusControls(unitTaskId);
   document.querySelector('#deleteLatestProgram')?.addEventListener('click', () => { const latest = getUnitPrograms(unitTaskId).at(-1); if (!latest) return; removeItem('programs', latest.id); showToast('최근 등록 프로그램이 삭제되었습니다.'); renderProgramTable(unitTaskId); renderFacultySummary(unitTaskId); renderEvidenceSummary(unitTaskId); });
+}
+
+function renderProgramStatusControls(programs) {
+  return `
+    <div class="form-actions" style="margin-bottom:12px;align-items:center;">
+      <select id="programStatusTarget" class="form-control">
+        ${programs.map(program => `<option value="${program.id}">${program.name}</option>`).join('')}
+      </select>
+      <button class="btn btn-outline" type="button" data-program-status="PLANNED">계획</button>
+      <button class="btn btn-outline" type="button" data-program-status="IN_PROGRESS">진행중</button>
+      <button class="btn btn-primary" type="button" data-program-status="COMPLETED">완료</button>
+    </div>`;
+}
+
+function bindProgramStatusControls(unitTaskId) {
+  document.querySelectorAll('[data-program-status]').forEach(button => {
+    button.addEventListener('click', () => {
+      const programId = document.querySelector('#programStatusTarget')?.value;
+      const program = getUnitPrograms(unitTaskId).find(item => item.id === programId);
+      if (!program) return;
+      const nextStatus = button.dataset.programStatus;
+      if (nextStatus === 'COMPLETED') {
+        const evidence = getProgramEvidenceStatus(program);
+        if (!evidence.ready) showToast(`완료 처리됨. 단, 필수 증빙 ${evidence.readyCount}/${evidence.totalCount}건만 등록되어 KPI 반영은 대기 상태입니다.`);
+        else showToast('완료 처리됨. 필수 증빙이 완비되어 KPI 반영 가능 상태입니다.');
+      } else {
+        showToast(`프로그램 상태가 ${getProgramStatusLabel(nextStatus)}으로 변경되었습니다.`);
+      }
+      upsertItem('programs', { ...program, status: nextStatus });
+      renderProgramTable(unitTaskId);
+      renderEvidenceSummary(unitTaskId);
+    });
+  });
+}
+
+function getProgramEvidenceStatus(program) {
+  const files = getCollection('files').filter(file => file.unitTaskId === program.unitTaskId && (file.programName === program.name || String(file.title || '').includes(program.name)));
+  const evidenceMap = REQUIRED_EVIDENCE.map(category => {
+    const matched = files.find(file => file.category === category);
+    const ready = matched ? matched.fileName && matched.fileName !== '미등록' && matched.fileName !== '파일 미선택' : false;
+    return { category, ready };
+  });
+  const readyCount = evidenceMap.filter(item => item.ready).length;
+  const fallbackReady = program.hasPlan === 'Y' && program.hasResultReport === 'Y';
+  return {
+    planReady: evidenceMap.find(item => item.category === '사업계획서')?.ready || program.hasPlan === 'Y',
+    resultReady: evidenceMap.find(item => item.category === '결과보고서')?.ready || program.hasResultReport === 'Y',
+    ready: files.length ? readyCount === REQUIRED_EVIDENCE.length : fallbackReady,
+    readyCount: files.length ? readyCount : (fallbackReady ? REQUIRED_EVIDENCE.length : 0),
+    totalCount: REQUIRED_EVIDENCE.length
+  };
+}
+
+function getProgramStatusLabel(status) {
+  const labels = { PLANNED: '계획', IN_PROGRESS: '진행중', COMPLETED: '완료' };
+  return labels[status] || status || '계획';
 }
 
 function renderFacultySummary(unitTaskId) {
@@ -251,7 +340,7 @@ function renderFacultySummary(unitTaskId) {
   if (!target) return;
   const programs = getUnitPrograms(unitTaskId).filter(program => program.faculty);
   if (!programs.length) return target.innerHTML = createEmptyState({ title: '참여교원 없음', description: '참여교원이 입력된 프로그램이 없습니다.' });
-  const rows = programs.map(program => ({ programName: program.name, faculty: program.faculty, role: program.type, evidence: program.hasResultReport === 'Y' ? '결과보고서 첨부' : '결과보고서 미첨부' }));
+  const rows = programs.map(program => ({ programName: program.name, faculty: program.faculty, role: program.type, evidence: getProgramEvidenceStatus(program).resultReady ? '결과보고서 첨부' : '결과보고서 미첨부' }));
   target.innerHTML = createTable({ columns: [{ key: 'programName', label: '프로그램' }, { key: 'faculty', label: '참여교원' }, { key: 'role', label: '참여유형' }, { key: 'evidence', label: '근거자료' }], rows });
 }
 
@@ -260,6 +349,9 @@ function renderEvidenceSummary(unitTaskId) {
   if (!target) return;
   const programs = getUnitPrograms(unitTaskId);
   if (!programs.length) return target.innerHTML = createEmptyState({ title: '증빙현황 없음', description: '등록된 프로그램이 없습니다.' });
-  const rows = programs.map(program => ({ name: program.name, linkedKpi: program.linkedKpi, plan: program.hasPlan === 'Y' ? '첨부완료' : '미첨부', result: program.hasResultReport === 'Y' ? '첨부완료' : '미첨부', status: program.hasPlan === 'Y' && program.hasResultReport === 'Y' ? '완비' : '보완필요' }));
-  target.innerHTML = createTable({ columns: [{ key: 'name', label: '프로그램' }, { key: 'linkedKpi', label: '연계 KPI' }, { key: 'plan', label: '사업계획서' }, { key: 'result', label: '결과보고서' }, { key: 'status', label: '증빙상태' }], rows });
+  const rows = programs.map(program => {
+    const evidence = getProgramEvidenceStatus(program);
+    return { name: program.name, linkedKpi: program.linkedKpi, plan: evidence.planReady ? '첨부완료' : '미첨부', result: evidence.resultReady ? '첨부완료' : '미첨부', status: evidence.ready ? '완비' : `보완필요(${evidence.readyCount}/${evidence.totalCount})`, kpiReady: program.status === 'COMPLETED' && evidence.ready ? 'KPI 반영 가능' : '대기' };
+  });
+  target.innerHTML = createTable({ columns: [{ key: 'name', label: '프로그램' }, { key: 'linkedKpi', label: '연계 KPI' }, { key: 'plan', label: '사업계획서' }, { key: 'result', label: '결과보고서' }, { key: 'status', label: '증빙상태' }, { key: 'kpiReady', label: 'KPI 반영' }], rows });
 }
