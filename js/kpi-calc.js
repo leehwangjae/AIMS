@@ -8,6 +8,7 @@ const PEOPLE_SUM_KPIS = [
 ];
 
 const GRADUATE_KPIS = ['인력양성 인원', 'AI 인재양성 인원 수'];
+const REQUIRED_EVIDENCE = ['사업계획서', '결과보고서', '참석자명단'];
 
 export function getAutoKpis(unitTaskId) {
   return (KPI_DEFINITIONS[unitTaskId] || []).map(kpi => {
@@ -64,12 +65,57 @@ function getCapstoneWeightedResult(unitTaskId, kpiName) {
 }
 
 function getProgramResult(unitTaskId, kpiName) {
-  const programs = getCollection('programs').filter(program => program.unitTaskId === unitTaskId && program.linkedKpi === kpiName);
-  if (!programs.length) return { actual: null, sourceType: '프로그램', sources: [] };
+  const allPrograms = getCollection('programs').filter(program => program.unitTaskId === unitTaskId && program.linkedKpi === kpiName);
+  const programs = allPrograms.filter(isKpiReadyProgram);
+
+  if (!allPrograms.length) return { actual: null, sourceType: '프로그램', sources: [] };
+  if (!programs.length) return { actual: 0, sourceType: '완료·증빙완비 프로그램', sources: allPrograms.map(markPendingProgram) };
+
   const actual = PEOPLE_SUM_KPIS.includes(kpiName)
-    ? programs.reduce((sum, program) => sum + Number(program.participants || 0), 0)
-    : programs.length;
-  return { actual, sourceType: PEOPLE_SUM_KPIS.includes(kpiName) ? '참여인원 합산' : '프로그램 건수', sources: programs };
+    ? programs.reduce((sum, program) => sum + Number(program.expectedRecognized ?? program.participants ?? 0), 0)
+    : programs.reduce((sum, program) => sum + Number(program.expectedRecognized ?? 1), 0);
+
+  return { actual: round1(actual), sourceType: PEOPLE_SUM_KPIS.includes(kpiName) ? '완료·증빙완비 참여인원 합산' : '완료·증빙완비 프로그램 실적', sources: programs.map(markReadyProgram) };
+}
+
+function isKpiReadyProgram(program) {
+  if (program.status !== 'COMPLETED') return false;
+  return getProgramEvidenceStatus(program).ready;
+}
+
+function getProgramEvidenceStatus(program) {
+  const files = getCollection('files').filter(file => file.unitTaskId === program.unitTaskId && (file.programName === program.name || String(file.title || '').includes(program.name)));
+  const evidenceMap = REQUIRED_EVIDENCE.map(category => {
+    const matched = files.find(file => file.category === category);
+    const ready = matched ? matched.fileName && matched.fileName !== '미등록' && matched.fileName !== '파일 미선택' : false;
+    return { category, ready };
+  });
+  const readyCount = evidenceMap.filter(item => item.ready).length;
+  const fallbackReady = program.hasPlan === 'Y' && program.hasResultReport === 'Y';
+  return {
+    ready: files.length ? readyCount === REQUIRED_EVIDENCE.length : fallbackReady,
+    readyCount: files.length ? readyCount : (fallbackReady ? REQUIRED_EVIDENCE.length : 0),
+    totalCount: REQUIRED_EVIDENCE.length
+  };
+}
+
+function markReadyProgram(program) {
+  return {
+    ...program,
+    kpiStatus: 'KPI 반영',
+    value: Number(program.expectedRecognized ?? program.participants ?? 1),
+    evidenceReady: '완비'
+  };
+}
+
+function markPendingProgram(program) {
+  const evidence = getProgramEvidenceStatus(program);
+  return {
+    ...program,
+    kpiStatus: program.status === 'COMPLETED' ? '증빙 보완 필요' : '완료 처리 필요',
+    value: 0,
+    evidenceReady: evidence.ready ? '완비' : `보완필요(${evidence.readyCount}/${evidence.totalCount})`
+  };
 }
 
 function getIndustryCooperationIndex(unitTaskId) {
