@@ -13,6 +13,7 @@ const KPI_TYPE_ID = 'planKpiPerformanceType';
 const KPI_GUIDE_ID = 'kpiPerformanceGuide';
 const EXPECTED_INPUT_ID = 'expectedPerformanceInput';
 const EXPECTED_RESULT_ID = 'expectedKpiResult';
+const KPI_CONTRIBUTION_ID = 'expectedKpiContribution';
 
 export function renderPlanDraftView(targetSelector) {
   const target = document.querySelector(targetSelector);
@@ -52,6 +53,7 @@ function renderForm() {
       <label class="form-field"><span>KPI 실적유형</span><select name="kpiPerformanceType" id="${KPI_TYPE_ID}"></select></label>
       <label class="form-field"><span>예상 원자료 실적</span><input name="expectedRawValue" id="${EXPECTED_INPUT_ID}" type="number" min="0" step="0.1" value="0" /></label>
       <label class="form-field"><span>예상 인정 실적</span><input id="${EXPECTED_RESULT_ID}" type="text" value="0" readonly /></label>
+      <label class="form-field"><span>예상 KPI 기여도</span><input id="${KPI_CONTRIBUTION_ID}" type="text" value="0%" readonly /></label>
       <label class="form-field full"><span>KPI 인정기준</span><input id="${KPI_GUIDE_ID}" type="text" value="" readonly /></label>
       <label class="form-field"><span>예산항목</span><select name="budgetCategory" id="${BUDGET_SELECT_ID}"></select></label>
       <label class="form-field"><span>사용 예정 금액</span><input name="budgetAmount" type="number" min="0" value="0" /></label>
@@ -113,7 +115,7 @@ function bindPlanDraftForm() {
         category: values.budgetCategory || '미분류',
         allocated: 0,
         executed: Number(values.budgetAmount),
-        executionRate: selectedBudget?.allocated ? `${Math.round((Number(values.budgetAmount) / Number(selectedBudget.allocated)) * 1000) / 10}%` : '0%',
+        executionRate: selectedBudget?.allocated ? `${round1((Number(values.budgetAmount) / Number(selectedBudget.allocated)) * 100)}%` : '0%',
         memo: values.budgetMemo || '사업계획 기안 생성 연계'
       });
       showToast('기안 초안 생성 및 예산관리 반영 완료');
@@ -136,7 +138,7 @@ function updateLinkedKpiOptions() {
   if (!select) return;
   const kpis = KPI_DEFINITIONS[unitTaskId] || [];
   select.innerHTML = kpis.length
-    ? kpis.map(kpi => `<option value="${kpi.name}">${kpi.name} (${kpi.type})</option>`).join('')
+    ? kpis.map(kpi => `<option value="${kpi.name}">${kpi.name} (${kpi.type}) / 목표 ${kpi.target}${kpi.unit}</option>`).join('')
     : '<option value="">등록된 KPI 없음</option>';
 }
 
@@ -159,19 +161,42 @@ function updateKpiPerformanceGuide() {
 
 function updateExpectedKpiResult() {
   const input = document.querySelector(`#${EXPECTED_INPUT_ID}`);
-  const target = document.querySelector(`#${EXPECTED_RESULT_ID}`);
+  const resultTarget = document.querySelector(`#${EXPECTED_RESULT_ID}`);
+  const contributionTarget = document.querySelector(`#${KPI_CONTRIBUTION_ID}`);
   const select = document.querySelector(`#${KPI_TYPE_ID}`);
-  if (!input || !target || !select) return;
+  if (!input || !resultTarget || !contributionTarget || !select) return;
+
   const option = select.options[select.selectedIndex];
   const weight = Number(option?.dataset?.weight || 1);
   const raw = Number(input.value || 0);
-  target.value = `${round1(raw * weight)} 인정`;
+  const recognized = round1(raw * weight);
+  const target = getSelectedKpiTarget();
+  const contribution = target ? round1((recognized / target) * 100) : 0;
+
+  resultTarget.value = `${recognized} 인정`;
+  contributionTarget.value = target ? `${contribution}%` : '목표값 없음';
 }
 
 function getSelectedWeight() {
   const select = document.querySelector(`#${KPI_TYPE_ID}`);
   const option = select?.options?.[select.selectedIndex];
   return Number(option?.dataset?.weight || 1);
+}
+
+function getSelectedKpiDefinition() {
+  const unitTaskId = document.querySelector('#planUnitTaskId')?.value || '1-1';
+  const kpiName = document.querySelector(`#${KPI_SELECT_ID}`)?.value || '';
+  return (KPI_DEFINITIONS[unitTaskId] || []).find(kpi => kpi.name === kpiName);
+}
+
+function getSelectedKpiTarget() {
+  const kpi = getSelectedKpiDefinition();
+  return Number(kpi?.target || 0);
+}
+
+function getSelectedKpiUnit() {
+  const kpi = getSelectedKpiDefinition();
+  return kpi?.unit || '';
 }
 
 function getKpiPerformanceOptions(kpiName) {
@@ -266,5 +291,8 @@ function buildDraft(values, selectedBudget) {
   const guideText = document.querySelector(`#${KPI_GUIDE_ID}`)?.value || '별도 인정기준 없음';
   const expectedRaw = Number(values.expectedRawValue || 0);
   const expectedRecognized = round1(expectedRaw * getSelectedWeight());
-  return `[사업계획 기안 초안]\n\n1. 추진배경\n${values.background}\n\n2. 추진목적\n${values.purpose}\n\n3. 운영개요\n- 단위과제: ${values.unitTaskId}\n- 프로그램명: ${values.programName}\n- 운영기간: ${values.period}\n- 운영장소: ${values.location || '미정'}\n- 운영대상: ${values.target}\n- 담당자: ${values.manager || '미정'}\n- 연계 KPI: ${values.linkedKpi || '미지정'}\n- KPI 실적유형: ${values.kpiPerformanceType || '미지정'}\n- KPI 인정기준: ${guideText}\n- 예상 원자료 실적: ${expectedRaw}\n- 예상 KPI 인정 실적: ${expectedRecognized}\n\n4. 세부 추진내용\n${values.contents}\n\n5. 소요예산\n- 예산항목: ${values.budgetCategory || '미분류'}\n- 현재 잔액: ${remainingText}\n- 사용 예정 금액: ${Number(values.budgetAmount || 0).toLocaleString()}원\n- 산출내역/비고: ${values.budgetMemo || '세부 산출내역 별도 작성'}\n\n6. 기대효과\n${values.effect || '사업 추진을 통해 참여학생 역량 강화, 지역산업 연계 성과 창출 및 단위과제 KPI 달성에 기여할 것으로 기대됨.'}\n\n7. 향후계획\n- 세부 운영계획 확정\n- 참여자 모집 및 운영 준비\n- 프로그램 운영 후 결과보고서 및 증빙자료 등록\n- 연계 KPI 실적 반영 및 성과관리`; 
+  const target = getSelectedKpiTarget();
+  const contribution = target ? `${round1((expectedRecognized / target) * 100)}%` : '목표값 없음';
+  const kpiUnit = getSelectedKpiUnit();
+  return `[사업계획 기안 초안]\n\n1. 추진배경\n${values.background}\n\n2. 추진목적\n${values.purpose}\n\n3. 운영개요\n- 단위과제: ${values.unitTaskId}\n- 프로그램명: ${values.programName}\n- 운영기간: ${values.period}\n- 운영장소: ${values.location || '미정'}\n- 운영대상: ${values.target}\n- 담당자: ${values.manager || '미정'}\n- 연계 KPI: ${values.linkedKpi || '미지정'}\n- KPI 실적유형: ${values.kpiPerformanceType || '미지정'}\n- KPI 인정기준: ${guideText}\n- KPI 목표값: ${target || '미설정'}${kpiUnit}\n- 예상 원자료 실적: ${expectedRaw}\n- 예상 KPI 인정 실적: ${expectedRecognized}${kpiUnit}\n- 예상 KPI 목표 기여도: ${contribution}\n\n4. 세부 추진내용\n${values.contents}\n\n5. 소요예산\n- 예산항목: ${values.budgetCategory || '미분류'}\n- 현재 잔액: ${remainingText}\n- 사용 예정 금액: ${Number(values.budgetAmount || 0).toLocaleString()}원\n- 산출내역/비고: ${values.budgetMemo || '세부 산출내역 별도 작성'}\n\n6. 기대효과\n${values.effect || '사업 추진을 통해 참여학생 역량 강화, 지역산업 연계 성과 창출 및 단위과제 KPI 달성에 기여할 것으로 기대됨.'}\n\n7. 향후계획\n- 세부 운영계획 확정\n- 참여자 모집 및 운영 준비\n- 프로그램 운영 후 결과보고서 및 증빙자료 등록\n- 연계 KPI 실적 반영 및 성과관리`; 
 }
