@@ -291,10 +291,9 @@ function updateBudgetOptions() {
   const unitTaskId = document.querySelector('#planUnitTaskId')?.value || '1-1';
   const select = document.querySelector(`#${BUDGET_SELECT_ID}`);
   if (!select) return;
-  const executions = getCollection('budgets');
   const budgets = getManagedBudgetItems(unitTaskId);
   select.innerHTML = budgets.length
-    ? budgets.map(budget => `<option value="${budget.id}">${budget.riseCategory} / ${shorten(budget.erpItem)} / 편성 ${formatWon(budget.allocated)} / 집행 ${formatWon(getManagedExecuted(budget, executions))} / 잔액 ${formatWon(getManagedRemaining(budget, executions))}</option>`).join('')
+    ? budgets.map(budget => `<option value="${budget.id}">${budget.riseCategory} / ${shorten(budget.erpItem)}</option>`).join('')
     : '<option value="">편성된 예산항목 없음</option>';
 }
 
