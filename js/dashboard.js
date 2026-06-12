@@ -1,9 +1,10 @@
 import {
   UNIT_TASKS,
   KPI_DEFINITIONS,
-  BUDGET_EXECUTION,
   calculateAchievementRate
 } from '../data/kpi-data.js';
+import { BUDGET_UNITS, getBudgetItems } from '../data/budget-data.js';
+import { getCollection } from './store.js';
 import { renderRoute } from './router.js';
 
 const KPI_ROUTE_MAP = {
@@ -26,7 +27,7 @@ export function renderDashboardSummary(targetSelector) {
       <div class="scb">
         <div class="eyebrow">AIMS Dashboard V3</div>
         <h2 class="page-title">RISE 단위과제 KPI 및 예산 집행현황</h2>
-        <p class="page-desc">단위과제별 KPI 달성현황과 예산 집행률을 한 화면에서 점검합니다.</p>
+        <p class="page-desc">단위과제별 KPI 달성현황과 예산관리 기준 예산 집행률을 한 화면에서 점검합니다.</p>
       </div>
     </section>
 
@@ -51,9 +52,7 @@ export function renderDashboardSummary(targetSelector) {
         <div class="sct">예산 집행현황</div>
       </div>
       <div class="scb">
-        <div class="budget-list">
-          ${BUDGET_EXECUTION.map(item => renderBudgetRow(item)).join('')}
-        </div>
+        ${renderBudgetOverview()}
       </div>
     </section>
   `;
@@ -173,14 +172,97 @@ function renderRiskItem(kpi) {
   `;
 }
 
+function renderBudgetOverview() {
+  const rows = getBudgetDashboardRows();
+  const totalAllocated = rows.reduce((sum, row) => sum + row.allocated, 0);
+  const totalExecuted = rows.reduce((sum, row) => sum + row.executed, 0);
+  const totalRemaining = Math.max(totalAllocated - totalExecuted, 0);
+  const totalRate = totalAllocated ? round1((totalExecuted / totalAllocated) * 100) : 0;
+
+  return `
+    <div class="budget-summary-visual" style="display:grid;gap:14px;margin-bottom:18px;">
+      <div style="display:flex;justify-content:space-between;gap:12px;align-items:flex-end;flex-wrap:wrap;">
+        <div>
+          <div style="font-size:13px;color:#6b7280;">전체 예산 집행률</div>
+          <div style="font-size:18px;font-weight:700;">예산관리 데이터 연동</div>
+        </div>
+        <div style="font-size:24px;font-weight:800;">${totalRate}%</div>
+      </div>
+      <div style="height:16px;background:#e5e7eb;border-radius:999px;overflow:hidden;">
+        <div style="width:${Math.min(totalRate, 100)}%;height:100%;background:linear-gradient(90deg,#2563eb,#22c55e);border-radius:999px;"></div>
+      </div>
+      <div class="kpi-card-grid">
+        <div class="metric-card"><div class="metric-value">${formatWon(totalAllocated)}</div><div class="metric-label">전체 편성액</div></div>
+        <div class="metric-card"><div class="metric-value">${formatWon(totalExecuted)}</div><div class="metric-label">전체 집행액</div></div>
+        <div class="metric-card"><div class="metric-value">${formatWon(totalRemaining)}</div><div class="metric-label">전체 잔액</div></div>
+        <div class="metric-card"><div class="metric-value">${rows.length}</div><div class="metric-label">관리 단위과제</div></div>
+      </div>
+    </div>
+    <div class="budget-list">
+      ${rows.map(renderBudgetRow).join('')}
+    </div>
+  `;
+}
+
 function renderBudgetRow(item) {
-  const rate = item.allocated ? Math.round((item.executed / item.allocated) * 100) : 0;
+  const rate = item.allocated ? round1((item.executed / item.allocated) * 100) : 0;
 
   return `
     <div class="budget-row">
-      <div class="budget-label">${item.label}</div>
-      <div class="progress"><div class="progress-bar" style="width:${rate}%"></div></div>
+      <div class="budget-label">
+        <strong>${item.label}</strong>
+        <span style="display:block;font-size:12px;color:#6b7280;">편성 ${formatWon(item.allocated)} / 집행 ${formatWon(item.executed)} / 잔액 ${formatWon(item.remaining)}</span>
+      </div>
+      <div class="progress"><div class="progress-bar" style="width:${Math.min(rate, 100)}%"></div></div>
       <div class="budget-rate">${rate}%</div>
     </div>
   `;
+}
+
+function getBudgetDashboardRows() {
+  return BUDGET_UNITS.map(unit => {
+    const items = getManagedBudgetItems(unit.id);
+    const executions = getCollection('budgets').filter(row => row.unitTaskId === unit.id);
+    const allocated = items.reduce((sum, item) => sum + Number(item.allocated || 0), 0);
+    const executed = items.reduce((sum, item) => sum + getManagedExecuted(item, executions), 0);
+    return {
+      unitTaskId: unit.id,
+      label: unit.name,
+      allocated,
+      executed,
+      remaining: Math.max(allocated - executed, 0)
+    };
+  });
+}
+
+function getManagedBudgetItems(unitTaskId) {
+  const customRows = getCollection('budgetAllocations');
+  const customByBase = new Map(customRows.filter(row => row.baseItemId).map(row => [row.baseItemId, row]));
+  const customOnly = customRows.filter(row => !row.baseItemId && row.unitTaskId === unitTaskId);
+
+  const baseItems = getBudgetItems(unitTaskId).map(item => {
+    const override = customByBase.get(item.id);
+    return override ? { ...item, ...override, source: 'custom' } : { ...item, source: 'base', status: 'ACTIVE' };
+  });
+
+  return [...baseItems, ...customOnly]
+    .filter(item => item.unitTaskId === unitTaskId)
+    .filter(item => item.status !== 'INACTIVE');
+}
+
+function getManagedExecuted(item, executions = []) {
+  if (!item) return 0;
+  const linkedIds = [item.id, item.baseItemId].filter(Boolean);
+  return executions
+    .filter(row => row.unitTaskId === item.unitTaskId)
+    .filter(row => linkedIds.includes(row.budgetItemId) || (!row.budgetItemId && row.category === item.riseCategory))
+    .reduce((sum, row) => sum + Number(row.executed || 0), 0);
+}
+
+function formatWon(value) {
+  return `${Number(value || 0).toLocaleString()}원`;
+}
+
+function round1(value) {
+  return Math.round(Number(value || 0) * 10) / 10;
 }
