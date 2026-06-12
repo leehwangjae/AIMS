@@ -33,6 +33,16 @@ export function renderProgramView(targetSelector, routeId = 'business-1-1') {
   const unit = UNIT_TASKS.find(item => item.id === unitTaskId);
   if (!target || !unit) return;
 
+  const hasIndustryIndex = hasIndustryIndexKpi(unitTaskId);
+  const companiesPanel = `
+    <div data-business-panel="companies" class="hidden">
+      ${createCard({ title: '참여기업 등록', content: renderCompanyForm(unitTaskId) })}
+      ${hasIndustryIndex ? createCard({ title: '산학협력지수 기초데이터', content: renderIndustryIndexForm(unitTaskId) }) : ''}
+      ${createCard({ title: '참여기업 현황', content: `<div id="${COMPANY_TABLE_ID}"></div>` })}
+      ${hasIndustryIndex ? createCard({ title: '산학협력지수 산출입력 현황', content: `<div id="${INDUSTRY_TABLE_ID}"></div>` }) : ''}
+    </div>
+  `;
+
   target.innerHTML = `
     <section class="dashboard-hero sc">
       <div class="scb">
@@ -53,7 +63,7 @@ export function renderProgramView(targetSelector, routeId = 'business-1-1') {
 
     <div data-business-panel="departments">${createCard({ title: '참여학과 등록', content: renderDepartmentForm(unitTaskId) })}${createCard({ title: '참여학과 현황', content: `<div id="${DEPT_TABLE_ID}"></div>` })}</div>
     <div data-business-panel="graduates" class="hidden">${createCard({ title: '졸업생 원자료 등록', content: renderGraduateForm(unitTaskId) })}${createCard({ title: '졸업생 원자료 현황', content: `<div id="${GRADUATE_TABLE_ID}"></div>` })}</div>
-    <div data-business-panel="companies" class="hidden">${createCard({ title: '참여기업 등록', content: renderCompanyForm(unitTaskId) })}${createCard({ title: '산학협력지수 기초데이터', content: renderIndustryIndexForm(unitTaskId) })}${createCard({ title: '참여기업 현황', content: `<div id="${COMPANY_TABLE_ID}"></div>` })}${createCard({ title: '산학협력지수 산출입력 현황', content: `<div id="${INDUSTRY_TABLE_ID}"></div>` })}</div>
+    ${companiesPanel}
     <div data-business-panel="programs" class="hidden">${createCard({ title: '프로그램 등록', content: renderProgramForm(unitTaskId) })}${createCard({ title: '프로그램 목록 및 증빙상태', content: `<div id="${TABLE_ID}"></div>` })}</div>
     <div data-business-panel="faculty" class="hidden">${createCard({ title: '참여교원 실적 요약', content: `<div id="${FACULTY_SUMMARY_ID}"></div>` })}</div>
     <div data-business-panel="evidence" class="hidden">${createCard({ title: '증빙현황 요약', content: `<div id="${EVIDENCE_SUMMARY_ID}"></div>` })}</div>
@@ -63,15 +73,21 @@ export function renderProgramView(targetSelector, routeId = 'business-1-1') {
   bindDepartmentForm(unitTaskId);
   bindGraduateForm(unitTaskId);
   bindCompanyForm(unitTaskId);
-  bindIndustryIndexForm(unitTaskId);
+  if (hasIndustryIndex) {
+    bindIndustryIndexForm(unitTaskId);
+    renderIndustryIndexTable(unitTaskId);
+  }
   bindProgramForm(unitTaskId);
   renderDepartmentTable(unitTaskId);
   renderGraduateTable(unitTaskId);
   renderCompanyTable(unitTaskId);
-  renderIndustryIndexTable(unitTaskId);
   renderProgramTable(unitTaskId);
   renderFacultySummary(unitTaskId);
   renderEvidenceSummary(unitTaskId);
+}
+
+function hasIndustryIndexKpi(unitTaskId) {
+  return (KPI_DEFINITIONS[unitTaskId] || []).some(kpi => kpi.name === '산학협력지수');
 }
 
 function bindBusinessTabs() {
