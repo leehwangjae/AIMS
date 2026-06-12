@@ -3,6 +3,7 @@ import { createCard } from './components.js';
 import { validateRequired, validateNumber } from './form-utils.js';
 import { showToast } from './ui.js';
 import { KPI_DEFINITIONS } from '../data/kpi-data.js';
+import { getBudgetItems } from '../data/budget-data.js';
 
 const FORM_ID = 'planDraftForm';
 const OUTPUT_ID = 'planDraftOutput';
@@ -99,7 +100,7 @@ function bindPlanDraftForm() {
     if (!validateNumber(values.expectedRawValue, { min: 0 }).valid) return showToast('예상 원자료 실적을 확인해 주세요.');
 
     const selectedBudget = getSelectedBudget(values.unitTaskId, values.budgetCategory);
-    const remaining = getBudgetRemaining(selectedBudget);
+    const remaining = getManagedRemaining(selectedBudget, getCollection('budgets'));
     if (selectedBudget && Number(values.budgetAmount) > remaining) return showToast('사용 예정 금액이 현재 잔액을 초과합니다.');
 
     output.textContent = buildDraft(values, selectedBudget);
@@ -164,10 +165,13 @@ function createBudgetExecution(values, selectedBudget) {
   upsertItem('budgets', {
     id: `budget_${Date.now()}`,
     unitTaskId: values.unitTaskId,
+    budgetItemId: selectedBudget?.id || values.budgetCategory || '',
     programName: values.programName,
-    category: values.budgetCategory || '미분류',
+    category: selectedBudget?.riseCategory || '미분류',
+    erpItem: selectedBudget?.erpItem || '',
     allocated: 0,
     executed: Number(values.budgetAmount),
+    executionDate: new Date().toISOString().slice(0, 10),
     executionRate: selectedBudget?.allocated ? `${round1((Number(values.budgetAmount) / Number(selectedBudget.allocated)) * 100)}%` : '0%',
     memo: values.budgetMemo || '사업계획 기안 생성 연계'
   });
@@ -287,30 +291,66 @@ function updateBudgetOptions() {
   const unitTaskId = document.querySelector('#planUnitTaskId')?.value || '1-1';
   const select = document.querySelector(`#${BUDGET_SELECT_ID}`);
   if (!select) return;
-  const budgets = getBudgetsByUnit(unitTaskId);
-  select.innerHTML = budgets.length ? budgets.map(budget => `<option value="${budget.category}">${budget.category} / 잔액 ${formatWon(getBudgetRemaining(budget))}</option>`).join('') : '<option value="미분류">편성된 예산항목 없음</option>';
+  const executions = getCollection('budgets');
+  const budgets = getManagedBudgetItems(unitTaskId);
+  select.innerHTML = budgets.length
+    ? budgets.map(budget => `<option value="${budget.id}">${budget.riseCategory} / ${shorten(budget.erpItem)} / 편성 ${formatWon(budget.allocated)} / 집행 ${formatWon(getManagedExecuted(budget, executions))} / 잔액 ${formatWon(getManagedRemaining(budget, executions))}</option>`).join('')
+    : '<option value="">편성된 예산항목 없음</option>';
 }
 
 function updateBudgetBalance() {
   const unitTaskId = document.querySelector('#planUnitTaskId')?.value || '1-1';
-  const category = document.querySelector(`#${BUDGET_SELECT_ID}`)?.value || '';
+  const itemId = document.querySelector(`#${BUDGET_SELECT_ID}`)?.value || '';
   const target = document.querySelector(`#${BALANCE_TEXT_ID}`);
   if (!target) return;
-  const budget = getSelectedBudget(unitTaskId, category);
-  target.value = budget ? formatWon(getBudgetRemaining(budget)) : '편성 예산 없음';
+  const budget = getSelectedBudget(unitTaskId, itemId);
+  if (!budget) {
+    target.value = '편성 예산 없음';
+    return;
+  }
+  const executions = getCollection('budgets');
+  const executed = getManagedExecuted(budget, executions);
+  const remaining = getManagedRemaining(budget, executions);
+  const rate = getManagedRate(budget, executions);
+  target.value = `편성 ${formatWon(budget.allocated)} / 집행 ${formatWon(executed)} / 잔액 ${formatWon(remaining)} / 집행률 ${rate}%`;
 }
 
-function getBudgetsByUnit(unitTaskId) {
-  return getCollection('budgets').filter(budget => budget.unitTaskId === unitTaskId && Number(budget.allocated || 0) > 0);
+function getSelectedBudget(unitTaskId, itemId) {
+  return getManagedBudgetItems(unitTaskId).find(budget => budget.id === itemId || budget.baseItemId === itemId);
 }
 
-function getSelectedBudget(unitTaskId, category) {
-  return getBudgetsByUnit(unitTaskId).find(budget => budget.category === category);
+function getManagedBudgetItems(unitTaskId, options = {}) {
+  const customRows = getCollection('budgetAllocations');
+  const customByBase = new Map(customRows.filter(row => row.baseItemId).map(row => [row.baseItemId, row]));
+  const customOnly = customRows.filter(row => !row.baseItemId && row.unitTaskId === unitTaskId);
+  const baseItems = getBudgetItems(unitTaskId).map(item => {
+    const override = customByBase.get(item.id);
+    return override ? { ...item, ...override, source: 'custom' } : { ...item, source: 'base', status: 'ACTIVE' };
+  });
+
+  return [...baseItems, ...customOnly]
+    .filter(item => item.unitTaskId === unitTaskId)
+    .filter(item => options.includeInactive || item.status !== 'INACTIVE');
 }
 
-function getBudgetRemaining(budget) {
-  if (!budget) return 0;
-  return Math.max(Number(budget.allocated || 0) - Number(budget.executed || 0), 0);
+function getManagedExecuted(item, executions = []) {
+  if (!item) return 0;
+  const linkedIds = [item.id, item.baseItemId].filter(Boolean);
+  return executions
+    .filter(row => row.unitTaskId === item.unitTaskId)
+    .filter(row => linkedIds.includes(row.budgetItemId) || (!row.budgetItemId && row.category === item.riseCategory))
+    .reduce((sum, row) => sum + Number(row.executed || 0), 0);
+}
+
+function getManagedRemaining(item, executions = []) {
+  if (!item) return 0;
+  return Math.max(Number(item.allocated || 0) - getManagedExecuted(item, executions), 0);
+}
+
+function getManagedRate(item, executions = []) {
+  const allocated = Number(item?.allocated || 0);
+  if (!allocated) return 0;
+  return round1((getManagedExecuted(item, executions) / allocated) * 100);
 }
 
 function inferProgramType(kpiName, kpiType) {
@@ -334,6 +374,11 @@ function getExpectedRecognized(values) {
   return round1(Number(values.expectedRawValue || 0) * getSelectedWeight());
 }
 
+function shorten(value) {
+  const text = String(value || '');
+  return text.length > 42 ? `${text.slice(0, 42)}...` : text;
+}
+
 function formatWon(value) {
   return `${Number(value || 0).toLocaleString()}원`;
 }
@@ -343,7 +388,12 @@ function round1(value) {
 }
 
 function buildDraft(values, selectedBudget) {
-  const remainingText = selectedBudget ? formatWon(getBudgetRemaining(selectedBudget)) : '편성 예산 없음';
+  const executions = getCollection('budgets');
+  const remainingText = selectedBudget ? formatWon(getManagedRemaining(selectedBudget, executions)) : '편성 예산 없음';
+  const budgetName = selectedBudget ? `${selectedBudget.riseCategory} / ${selectedBudget.erpItem}` : '미분류';
+  const budgetStatusText = selectedBudget
+    ? `편성 ${formatWon(selectedBudget.allocated)} / 집행 ${formatWon(getManagedExecuted(selectedBudget, executions))} / 잔액 ${remainingText} / 집행률 ${getManagedRate(selectedBudget, executions)}%`
+    : '편성 예산 없음';
   const guideText = document.querySelector(`#${KPI_GUIDE_ID}`)?.value || '별도 인정기준 없음';
   const expectedRaw = Number(values.expectedRawValue || 0);
   const kpiUnit = getSelectedKpiUnit();
@@ -359,5 +409,5 @@ function buildDraft(values, selectedBudget) {
     contributionText = '최종 KPI 12점 대비 단순 기여도 미산출(세부 산식 반영)';
   }
 
-  return `[사업계획 기안 초안]\n\n1. 추진배경\n${values.background}\n\n2. 추진목적\n${values.purpose}\n\n3. 운영개요\n- 단위과제: ${values.unitTaskId}\n- 프로그램명: ${values.programName}\n- 운영기간: ${periodText}\n- 운영장소: ${values.location || '미정'}\n- 운영대상: ${values.target}\n- 담당자: ${values.manager || '미정'}\n- 연계 KPI: ${values.linkedKpi || '미지정'}\n- KPI 실적유형: ${values.kpiPerformanceType || '미지정'}\n- KPI 인정기준: ${guideText}\n- KPI 목표값: ${target || '미설정'}${kpiUnit}\n- 예상 원자료 실적: ${expectedRaw}\n- 예상 KPI 인정 실적: ${expectedText}\n- 예상 KPI 목표 기여도: ${contributionText}\n\n4. 세부 추진내용\n${values.contents}\n\n5. 소요예산\n- 예산항목: ${values.budgetCategory || '미분류'}\n- 현재 잔액: ${remainingText}\n- 사용 예정 금액: ${Number(values.budgetAmount || 0).toLocaleString()}원\n- 산출내역/비고: ${values.budgetMemo || '세부 산출내역 별도 작성'}\n\n6. 기대효과\n${values.effect || '사업 추진을 통해 참여학생 역량 강화, 지역산업 연계 성과 창출 및 단위과제 KPI 달성에 기여할 것으로 기대됨.'}\n\n7. 향후계획\n- 세부 운영계획 확정\n- 참여자 모집 및 운영 준비\n- 프로그램 운영 후 결과보고서 및 증빙자료 등록\n- 연계 KPI 실적 반영 및 성과관리`;
+  return `[사업계획 기안 초안]\n\n1. 추진배경\n${values.background}\n\n2. 추진목적\n${values.purpose}\n\n3. 운영개요\n- 단위과제: ${values.unitTaskId}\n- 프로그램명: ${values.programName}\n- 운영기간: ${periodText}\n- 운영장소: ${values.location || '미정'}\n- 운영대상: ${values.target}\n- 담당자: ${values.manager || '미정'}\n- 연계 KPI: ${values.linkedKpi || '미지정'}\n- KPI 실적유형: ${values.kpiPerformanceType || '미지정'}\n- KPI 인정기준: ${guideText}\n- KPI 목표값: ${target || '미설정'}${kpiUnit}\n- 예상 원자료 실적: ${expectedRaw}\n- 예상 KPI 인정 실적: ${expectedText}\n- 예상 KPI 목표 기여도: ${contributionText}\n\n4. 세부 추진내용\n${values.contents}\n\n5. 소요예산\n- 예산항목: ${budgetName}\n- 예산현황: ${budgetStatusText}\n- 사용 예정 금액: ${Number(values.budgetAmount || 0).toLocaleString()}원\n- 산출내역/비고: ${values.budgetMemo || '세부 산출내역 별도 작성'}\n\n6. 기대효과\n${values.effect || '사업 추진을 통해 참여학생 역량 강화, 지역산업 연계 성과 창출 및 단위과제 KPI 달성에 기여할 것으로 기대됨.'}\n\n7. 향후계획\n- 세부 운영계획 확정\n- 참여자 모집 및 운영 준비\n- 프로그램 운영 후 결과보고서 및 증빙자료 등록\n- 연계 KPI 실적 반영 및 성과관리`;
 }
