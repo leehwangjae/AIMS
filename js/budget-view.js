@@ -2,7 +2,7 @@ import { getCollection, upsertItem, removeItem } from './store.js';
 import { createCard, createEmptyState, createTable } from './components.js';
 import { validateRequired, validateNumber } from './form-utils.js';
 import { showToast } from './ui.js';
-import { BUDGET_SOURCE, BUDGET_UNITS, getBudgetItems, getBudgetItem } from '../data/budget-data.js';
+import { BUDGET_SOURCE, BUDGET_UNITS, getBudgetItems } from '../data/budget-data.js';
 
 const EXEC_FORM_ID = 'budgetExecutionForm';
 const ALLOC_FORM_ID = 'budgetAllocationForm';
@@ -14,6 +14,7 @@ const UNIT_SELECT_ID = 'budgetUnitSelect';
 const ITEM_SELECT_ID = 'budgetItemSelect';
 const BALANCE_ID = 'budgetItemBalance';
 const ALLOC_TARGET_ID = 'budgetAllocationTarget';
+const ALLOC_DETAILS_ID = 'budgetAllocationDetails';
 
 export function renderBudgetView(targetSelector) {
   const target = document.querySelector(targetSelector);
@@ -27,9 +28,9 @@ export function renderBudgetView(targetSelector) {
         <p class="page-desc">${BUDGET_SOURCE.name}의 2차년도 사업비 편성내역을 기준으로 편성액·집행액·잔액을 관리합니다.</p>
       </div>
     </section>
+    ${createCard({ title: '예산 요약', content: `<div id="${SUMMARY_ID}"></div>` })}
     ${createCard({ title: '집행내역 입력', content: renderExecutionForm() })}
     ${createCard({ title: '편성항목 추가·수정', content: renderAllocationForm() })}
-    ${createCard({ title: '예산 요약', content: `<div id="${SUMMARY_ID}"></div>` })}
     ${createCard({ title: '편성 항목별 집행현황', content: `<div id="${ALLOCATION_TABLE_ID}"></div>` })}
     ${createCard({ title: '집행내역', content: `<div id="${EXECUTION_TABLE_ID}"></div>` })}
     ${createCard({ title: '편성 변경 이력', content: `<div id="${HISTORY_TABLE_ID}"></div>` })}
@@ -59,21 +60,24 @@ function renderExecutionForm() {
 
 function renderAllocationForm() {
   return `
-    <form id="${ALLOC_FORM_ID}" class="form-grid">
-      <label class="form-field"><span>수정 대상</span><select name="targetItemId" id="${ALLOC_TARGET_ID}"></select></label>
-      <label class="form-field"><span>단위과제</span><select name="unitTaskId">${BUDGET_UNITS.map(unit => `<option value="${unit.id}">${unit.name}</option>`).join('')}</select></label>
-      <label class="form-field"><span>RISE 사업비목</span><input name="riseCategory" type="text" placeholder="예: 교육·연구 프로그램 개발 운영비" /></label>
-      <label class="form-field"><span>산단 ERP 비목</span><input name="erpItem" type="text" placeholder="예: 1-1>교육·연구 프로그램 개발 운영비(210-01일반수용비)" /></label>
-      <label class="form-field"><span>편성액</span><input name="allocated" type="number" min="0" value="0" /></label>
-      <label class="form-field"><span>구분</span><select name="allocationType"><option value="단위과제">단위과제</option><option value="사업단공통">사업단공통</option><option value="단위과제/공통">단위과제/공통</option></select></label>
-      <label class="form-field full"><span>수정사유/비고</span><input name="detail" type="text" placeholder="예: 예산 조정, 신규 편성, 감액 등" /></label>
-      <div class="form-actions">
-        <button class="btn btn-outline" type="button" id="loadBudgetAllocation">불러오기</button>
-        <button class="btn btn-primary" type="submit">편성항목 저장</button>
-        <button class="btn btn-outline" type="button" id="newBudgetAllocation">신규 항목</button>
-        <button class="btn btn-outline" type="button" id="disableBudgetAllocation">사용중지</button>
-      </div>
-    </form>`;
+    <details id="${ALLOC_DETAILS_ID}" class="budget-allocation-details">
+      <summary class="btn btn-outline" style="display:inline-flex;cursor:pointer;">편성항목 추가·수정 열기</summary>
+      <form id="${ALLOC_FORM_ID}" class="form-grid" style="margin-top:14px;">
+        <label class="form-field"><span>수정 대상</span><select name="targetItemId" id="${ALLOC_TARGET_ID}"></select></label>
+        <label class="form-field"><span>단위과제</span><select name="unitTaskId">${BUDGET_UNITS.map(unit => `<option value="${unit.id}">${unit.name}</option>`).join('')}</select></label>
+        <label class="form-field"><span>RISE 사업비목</span><input name="riseCategory" type="text" placeholder="예: 교육·연구 프로그램 개발 운영비" /></label>
+        <label class="form-field"><span>산단 ERP 비목</span><input name="erpItem" type="text" placeholder="예: 1-1>교육·연구 프로그램 개발 운영비(210-01일반수용비)" /></label>
+        <label class="form-field"><span>편성액</span><input name="allocated" type="number" min="0" value="0" /></label>
+        <label class="form-field"><span>구분</span><select name="allocationType"><option value="단위과제">단위과제</option><option value="사업단공통">사업단공통</option><option value="단위과제/공통">단위과제/공통</option></select></label>
+        <label class="form-field full"><span>수정사유/비고</span><input name="detail" type="text" placeholder="예: 예산 조정, 신규 편성, 감액 등" /></label>
+        <div class="form-actions">
+          <button class="btn btn-outline" type="button" id="loadBudgetAllocation">불러오기</button>
+          <button class="btn btn-primary" type="submit">편성항목 저장</button>
+          <button class="btn btn-outline" type="button" id="newBudgetAllocation">신규 항목</button>
+          <button class="btn btn-outline" type="button" id="disableBudgetAllocation">사용중지</button>
+        </div>
+      </form>
+    </details>`;
 }
 
 function bindBudgetForm() {
@@ -83,6 +87,7 @@ function bindBudgetForm() {
   form.querySelector(`#${UNIT_SELECT_ID}`)?.addEventListener('change', () => {
     updateBudgetItemOptions();
     updateBudgetBalance();
+    syncAllocationUnitWithBudgetUnit();
     renderBudgetTables();
   });
   form.querySelector(`#${ITEM_SELECT_ID}`)?.addEventListener('change', updateBudgetBalance);
@@ -135,7 +140,7 @@ function bindAllocationForm() {
     if (!validateNumber(values.allocated, { min: 0 }).valid) return showToast('편성액을 확인해 주세요.');
 
     const targetId = values.targetItemId && values.targetItemId !== '__new__' ? values.targetItemId : '';
-    const previous = targetId ? getManagedBudgetItem(targetId) : null;
+    const previous = targetId ? getManagedBudgetItem(targetId, { includeInactive: true }) : null;
     const id = targetId || `custom_budget_${Date.now()}`;
 
     upsertItem('budgetAllocations', {
@@ -178,6 +183,14 @@ function updateBudgetBalance() {
   target.value = item ? formatWon(getManagedRemaining(item, getCollection('budgets'))) : '편성 예산 없음';
 }
 
+function syncAllocationUnitWithBudgetUnit() {
+  const unitTaskId = document.querySelector(`#${UNIT_SELECT_ID}`)?.value;
+  const form = document.querySelector(`#${ALLOC_FORM_ID}`);
+  if (!unitTaskId || !form) return;
+  form.querySelector('[name="unitTaskId"]').value = unitTaskId;
+  updateAllocationTargetOptions();
+}
+
 function updateAllocationTargetOptions() {
   const form = document.querySelector(`#${ALLOC_FORM_ID}`);
   const unitTaskId = form?.querySelector('[name="unitTaskId"]')?.value || BUDGET_UNITS[0].id;
@@ -202,6 +215,7 @@ function loadAllocationToForm(itemId) {
   form.querySelector('[name="allocated"]').value = item.allocated;
   form.querySelector('[name="allocationType"]').value = item.allocationType || '단위과제';
   form.querySelector('[name="detail"]').value = item.detail || '';
+  document.querySelector(`#${ALLOC_DETAILS_ID}`)?.setAttribute('open', 'open');
 }
 
 function clearAllocationForm(resetUnit = true) {
@@ -211,6 +225,7 @@ function clearAllocationForm(resetUnit = true) {
   form.reset();
   if (!resetUnit && unitTaskId) form.querySelector('[name="unitTaskId"]').value = unitTaskId;
   updateAllocationTargetOptions();
+  document.querySelector(`#${ALLOC_DETAILS_ID}`)?.setAttribute('open', 'open');
 }
 
 function disableAllocation() {
@@ -252,13 +267,26 @@ function renderSummary(unitTaskId, items, executions) {
   const executed = items.reduce((sum, item) => sum + getManagedExecuted(item, executions), 0);
   const remaining = Math.max(allocated - executed, 0);
   const rate = allocated ? round1((executed / allocated) * 100) : 0;
+  const safeRate = Math.min(rate, 100);
 
   target.innerHTML = `
-    <div class="kpi-card-grid">
-      <div class="metric-card"><div class="metric-value">${formatWon(allocated)}</div><div class="metric-label">편성액</div></div>
-      <div class="metric-card"><div class="metric-value">${formatWon(executed)}</div><div class="metric-label">집행액</div></div>
-      <div class="metric-card"><div class="metric-value">${formatWon(remaining)}</div><div class="metric-label">잔액</div></div>
-      <div class="metric-card"><div class="metric-value">${rate}%</div><div class="metric-label">집행률</div></div>
+    <div class="budget-summary-visual" style="display:grid;gap:14px;">
+      <div style="display:flex;justify-content:space-between;gap:12px;align-items:flex-end;flex-wrap:wrap;">
+        <div>
+          <div style="font-size:13px;color:#6b7280;">현재 단위과제</div>
+          <div style="font-size:18px;font-weight:700;">${getUnitName(unitTaskId)}</div>
+        </div>
+        <div style="font-size:24px;font-weight:800;">집행률 ${rate}%</div>
+      </div>
+      <div style="height:16px;background:#e5e7eb;border-radius:999px;overflow:hidden;">
+        <div style="width:${safeRate}%;height:100%;background:linear-gradient(90deg,#2563eb,#22c55e);border-radius:999px;"></div>
+      </div>
+      <div class="kpi-card-grid">
+        <div class="metric-card"><div class="metric-value">${formatWon(allocated)}</div><div class="metric-label">편성액</div></div>
+        <div class="metric-card"><div class="metric-value">${formatWon(executed)}</div><div class="metric-label">집행액</div></div>
+        <div class="metric-card"><div class="metric-value">${formatWon(remaining)}</div><div class="metric-label">잔액</div></div>
+        <div class="metric-card"><div class="metric-value">${items.length}</div><div class="metric-label">사용중 편성항목</div></div>
+      </div>
     </div>`;
 }
 
@@ -413,6 +441,10 @@ function addAllocationHistory({ previous, next, action }) {
     diff: nextAmount - prevAmount,
     reason: next.detail || previous?.detail || '-'
   });
+}
+
+function getUnitName(unitTaskId) {
+  return BUDGET_UNITS.find(unit => unit.id === unitTaskId)?.name || unitTaskId;
 }
 
 function shorten(value) {
