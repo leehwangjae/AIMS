@@ -7,7 +7,7 @@ import { renderFileView } from './file-view.js';
 import { renderIncentiveView } from './incentive-view.js';
 import { renderUserManagementView } from './user-management-view.js';
 import { renderPlanDraftView } from './plan-draft-view.js';
-import { readCollection } from './storage.js';
+import { renderBudgetView } from './budget-view.js';
 
 const KPI_ROUTE_MAP = {
   'kpi-1-1': '1-1',
@@ -69,7 +69,7 @@ export function renderRoute(routeId, targetSelector = '#contentContainer') {
   }
 
   if (routeId === 'budgets') {
-    renderSimpleCollection(target, '예산관리', 'budgets', ['unitTaskId', 'programName', 'category', 'allocated', 'executed', 'executionRate', 'memo']);
+    renderBudgetView(targetSelector);
     return;
   }
 
@@ -134,45 +134,4 @@ export function bindMenuRouting(menuSelector = '#menuContainer', contentSelector
 
     renderRoute(routeId, contentSelector);
   });
-}
-
-function renderSimpleCollection(target, title, collectionName, columns) {
-  const rows = readCollection(collectionName, []);
-
-  target.innerHTML = `
-    <section class="sc">
-      <div class="sch">
-        <div class="sct">${title}</div>
-      </div>
-
-      <div class="scb">
-        ${rows.length ? renderTable(rows, columns) : renderEmpty(title)}
-      </div>
-    </section>
-  `;
-}
-
-function renderTable(rows, columns) {
-  return `
-    <table class="tbl">
-      <thead>
-        <tr>${columns.map(column => `<th>${column}</th>`).join('')}</tr>
-      </thead>
-      <tbody>
-        ${rows.map(row => `
-          <tr>
-            ${columns.map(column => `<td>${row[column] ?? '-'}</td>`).join('')}
-          </tr>
-        `).join('')}
-      </tbody>
-    </table>
-  `;
-}
-
-function renderEmpty(title) {
-  return `
-    <div style="font-size:13px;color:#6b7280;line-height:1.7;">
-      등록된 ${title} 데이터가 없습니다.
-    </div>
-  `;
 }
