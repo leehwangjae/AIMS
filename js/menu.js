@@ -3,6 +3,7 @@ import { hasPermission } from './auth.js';
 
 export const menus = [
   { id: 'dashboard', label: '대시보드', group: 'main' },
+  { id: 'ai-center', label: 'AI 업무센터', group: 'main' },
 
   { id: 'business-1-1', label: '1-1 전략산업', group: '사업관리' },
   { id: 'business-1-2', label: '1-2 스마트모빌리티', group: '사업관리' },
@@ -15,12 +16,10 @@ export const menus = [
   { id: 'kpi-2-1-ai', label: '2-1 KPI', group: '성과관리' },
 
   { id: 'budgets', label: '예산관리', group: '운영관리' },
-  { id: 'files', label: '자료관리', group: '운영관리' },
+  { id: 'files', label: '문서관리', group: '운영관리' },
   { id: 'incentives', label: '교원 인센티브', group: '운영관리' },
   { id: 'leave-management', label: '연차관리', group: '운영관리' },
 
-  { id: 'reports', label: '보고서센터', group: 'main' },
-  { id: 'ai-center', label: 'AI 업무센터', group: 'main' },
   { id: 'user-management', label: '사용자관리', group: '시스템' },
   { id: 'settings', label: '시스템관리', group: '시스템' }
 ];
