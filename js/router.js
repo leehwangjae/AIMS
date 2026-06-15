@@ -1,5 +1,4 @@
 import { renderDashboardSummary } from './dashboard.js';
-import { renderReportList } from './report-view.js';
 import { renderProgramView } from './program-view.js';
 import { renderKpiDetailView } from './kpi-view.js';
 import { renderAnnualLeaveView } from './annual-leave-view.js';
@@ -37,7 +36,7 @@ export function renderRoute(routeId, targetSelector = '#contentContainer') {
     return;
   }
 
-  if (routeId === 'files') {
+  if (routeId === 'files' || routeId === 'documents' || routeId === 'reports') {
     renderFileView(targetSelector);
     return;
   }
@@ -54,12 +53,6 @@ export function renderRoute(routeId, targetSelector = '#contentContainer') {
 
   if (routeId === 'plan-draft') {
     renderPlanDraftView(targetSelector);
-    return;
-  }
-
-  if (routeId === 'reports') {
-    target.innerHTML = '<div id="reportContainer"></div>';
-    renderReportList('#reportContainer');
     return;
   }
 
