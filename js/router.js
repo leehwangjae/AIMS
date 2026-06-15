@@ -32,6 +32,11 @@ export function renderRoute(routeId, targetSelector = '#contentContainer') {
     return;
   }
 
+  if (routeId === 'tasks') {
+    renderTaskView(targetSelector);
+    return;
+  }
+
   if (routeId === 'leave-management') {
     renderAnnualLeaveView(targetSelector);
     return;
