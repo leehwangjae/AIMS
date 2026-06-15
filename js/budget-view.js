@@ -15,13 +15,29 @@ const ITEM_SELECT_ID = 'budgetItemSelect';
 const BALANCE_ID = 'budgetItemBalance';
 const ALLOC_TARGET_ID = 'budgetAllocationTarget';
 const ALLOC_DETAILS_ID = 'budgetAllocationDetails';
+const ALLOC_TRACK_ID = 'budgetAllocationTrack';
 
 const FUND_TYPES = [
   { id: 'CURRENT', label: '당해연도 사업비', shortLabel: '당해', color: '#1e40af', bg: '#dbeafe' },
   { id: 'CARRYOVER', label: '이월사업비', shortLabel: '이월', color: '#0f6e56', bg: '#d1fae5' }
 ];
+
+const TRACKS_BY_UNIT = {
+  '1-1': [
+    { id: 'ALL', label: '1-1 전체' },
+    { id: 'BIO', label: '바이오' },
+    { id: 'SEMI', label: '반도체' },
+    { id: 'LOGISTICS', label: '물류' },
+    { id: 'UNASSIGNED', label: '미분류' }
+  ],
+  '1-2': [{ id: 'MOBILITY', label: '스마트모빌리티' }],
+  '1-3': [{ id: 'STARTUP', label: '혁신창업' }],
+  '2-1-ai': [{ id: 'AI', label: 'AI' }]
+};
+
 const CATEGORY_COLORS = ['#185fa5', '#534ab7', '#0f6e56', '#854f0b', '#993c1d', '#64748b'];
 let activeFundFilter = 'ALL';
+let activeTrackFilter = 'ALL';
 
 export function renderBudgetView(targetSelector) {
   const target = document.querySelector(targetSelector);
@@ -31,7 +47,7 @@ export function renderBudgetView(targetSelector) {
       <div class="scb">
         <div class="eyebrow">Budget Management</div>
         <h2 class="page-title">예산관리</h2>
-        <p class="page-desc">${BUDGET_SOURCE.name} 기준 편성액을 이월사업비와 당해연도 사업비로 구분하여 집행·잔액을 직관적으로 확인합니다.</p>
+        <p class="page-desc">${BUDGET_SOURCE.name} 기준 편성액을 이월사업비·당해연도 사업비와 1-1 세부 분야별로 구분하여 관리합니다.</p>
       </div>
     </section>
     ${createCard({ title: '예산 집행현황', content: `<div id="${SUMMARY_ID}"></div>` })}
@@ -46,6 +62,7 @@ export function renderBudgetView(targetSelector) {
   updateBudgetItemOptions();
   updateBudgetBalance();
   updateAllocationTargetOptions();
+  updateAllocationTrackOptions();
   renderBudgetTables();
 }
 
@@ -70,12 +87,13 @@ function renderAllocationForm() {
       <form id="${ALLOC_FORM_ID}" class="form-grid" style="margin-top:14px;">
         <label class="form-field"><span>수정 대상</span><select name="targetItemId" id="${ALLOC_TARGET_ID}"></select></label>
         <label class="form-field"><span>단위과제</span><select name="unitTaskId">${BUDGET_UNITS.map(unit => `<option value="${unit.id}">${unit.name}</option>`).join('')}</select></label>
+        <label class="form-field"><span>분야</span><select name="trackId" id="${ALLOC_TRACK_ID}"></select></label>
         <label class="form-field"><span>재원구분</span><select name="fundType">${FUND_TYPES.map(type => `<option value="${type.id}">${type.label}</option>`).join('')}</select></label>
         <label class="form-field"><span>RISE 사업비목</span><input name="riseCategory" type="text" placeholder="예: 교육·연구 프로그램 개발 운영비" /></label>
         <label class="form-field"><span>산단 ERP 비목</span><input name="erpItem" type="text" placeholder="예: 1-1>교육·연구 프로그램 개발 운영비(210-01일반수용비)" /></label>
         <label class="form-field"><span>편성액</span><input name="allocated" type="number" min="0" value="0" /></label>
         <label class="form-field"><span>구분</span><select name="allocationType"><option value="단위과제">단위과제</option><option value="사업단공통">사업단공통</option><option value="단위과제/공통">단위과제/공통</option></select></label>
-        <label class="form-field full"><span>수정사유/비고</span><input name="detail" type="text" placeholder="예: 이월사업비 편성, 당해연도 예산 조정, 감액 등" /></label>
+        <label class="form-field full"><span>수정사유/비고</span><input name="detail" type="text" placeholder="예: 바이오 분야 이월사업비 편성, 반도체 예산 조정 등" /></label>
         <div class="form-actions">
           <button class="btn btn-outline" type="button" id="loadBudgetAllocation">불러오기</button>
           <button class="btn btn-primary" type="submit">편성항목 저장</button>
@@ -90,6 +108,7 @@ function bindBudgetForm() {
   const form = document.querySelector(`#${EXEC_FORM_ID}`);
   if (!form) return;
   form.querySelector(`#${UNIT_SELECT_ID}`)?.addEventListener('change', () => {
+    activeTrackFilter = 'ALL';
     updateBudgetItemOptions();
     updateBudgetBalance();
     syncAllocationUnitWithBudgetUnit();
@@ -103,8 +122,8 @@ function bindBudgetForm() {
     if (!validateNumber(values.executed, { min: 0 }).valid) return showToast('집행액을 확인해 주세요.');
     const item = getManagedBudgetItem(values.budgetItemId);
     const remaining = getManagedRemaining(item, getCollection('budgets'));
-    if (item && Number(values.executed) > remaining) return showToast('집행액이 해당 재원의 현재 잔액을 초과합니다.');
-    upsertItem('budgets', { id: `budget_exec_${Date.now()}`, unitTaskId: values.unitTaskId, budgetItemId: values.budgetItemId, fundType: getFundType(item), category: item?.riseCategory || '미분류', erpItem: item?.erpItem || '', programName: values.programName, allocated: 0, executed: Number(values.executed), executionDate: values.executionDate, executionRate: item?.allocated ? `${round1((Number(values.executed) / Number(item.allocated)) * 100)}%` : '0%', memo: values.memo || '' });
+    if (item && Number(values.executed) > remaining) return showToast('집행액이 해당 분야·재원의 현재 잔액을 초과합니다.');
+    upsertItem('budgets', { id: `budget_exec_${Date.now()}`, unitTaskId: values.unitTaskId, budgetItemId: values.budgetItemId, trackId: getTrackId(item), fundType: getFundType(item), category: item?.riseCategory || '미분류', erpItem: item?.erpItem || '', programName: values.programName, allocated: 0, executed: Number(values.executed), executionDate: values.executionDate, executionRate: item?.allocated ? `${round1((Number(values.executed) / Number(item.allocated)) * 100)}%` : '0%', memo: values.memo || '' });
     showToast('집행내역이 등록되었습니다.');
     form.reset();
     updateBudgetItemOptions();
@@ -116,7 +135,8 @@ function bindBudgetForm() {
 function bindAllocationForm() {
   const form = document.querySelector(`#${ALLOC_FORM_ID}`);
   if (!form) return;
-  form.querySelector('[name="unitTaskId"]')?.addEventListener('change', updateAllocationTargetOptions);
+  form.querySelector('[name="unitTaskId"]')?.addEventListener('change', () => { updateAllocationTrackOptions(); updateAllocationTargetOptions(); });
+  form.querySelector('[name="trackId"]')?.addEventListener('change', updateAllocationTargetOptions);
   form.querySelector('[name="fundType"]')?.addEventListener('change', updateAllocationTargetOptions);
   document.querySelector('#loadBudgetAllocation')?.addEventListener('click', () => loadAllocationToForm());
   document.querySelector('#newBudgetAllocation')?.addEventListener('click', () => clearAllocationForm());
@@ -124,12 +144,12 @@ function bindAllocationForm() {
   form.addEventListener('submit', event => {
     event.preventDefault();
     const values = Object.fromEntries(new FormData(form).entries());
-    if (!validateRequired(values, ['unitTaskId', 'fundType', 'riseCategory', 'erpItem']).valid) return showToast('편성항목 기본정보를 입력해 주세요.');
+    if (!validateRequired(values, ['unitTaskId', 'trackId', 'fundType', 'riseCategory', 'erpItem']).valid) return showToast('편성항목 기본정보를 입력해 주세요.');
     if (!validateNumber(values.allocated, { min: 0 }).valid) return showToast('편성액을 확인해 주세요.');
     const targetId = values.targetItemId && values.targetItemId !== '__new__' ? values.targetItemId : '';
     const previous = targetId ? getManagedBudgetItem(targetId, { includeInactive: true }) : null;
     const id = targetId || `custom_budget_${Date.now()}`;
-    upsertItem('budgetAllocations', { id, baseItemId: previous?.source === 'base' ? previous.id : previous?.baseItemId || '', unitTaskId: values.unitTaskId, fundType: values.fundType, riseCategory: values.riseCategory, erpItem: values.erpItem, allocated: Number(values.allocated), allocationType: values.allocationType, detail: values.detail || '', status: 'ACTIVE', source: 'custom' });
+    upsertItem('budgetAllocations', { id, baseItemId: previous?.source === 'base' ? previous.id : previous?.baseItemId || '', unitTaskId: values.unitTaskId, trackId: values.trackId, fundType: values.fundType, riseCategory: values.riseCategory, erpItem: values.erpItem, allocated: Number(values.allocated), allocationType: values.allocationType, detail: values.detail || '', status: 'ACTIVE', source: 'custom' });
     addAllocationHistory({ previous, next: { id, ...values, allocated: Number(values.allocated) }, action: previous ? '수정' : '신규' });
     showToast(previous ? '편성항목이 수정되었습니다.' : '편성항목이 추가되었습니다.');
     updateBudgetItemOptions();
@@ -144,8 +164,8 @@ function renderBudgetTables() {
   const unitTaskId = getSelectedUnitId();
   const executions = getCollection('budgets').filter(row => row.unitTaskId === unitTaskId);
   const allItems = getManagedBudgetItems(unitTaskId);
-  const displayItems = filterByFund(allItems);
-  const displayExecutions = filterExecutionsByFund(executions);
+  const displayItems = filterByTrack(filterByFund(allItems));
+  const displayExecutions = filterExecutionsByTrack(filterExecutionsByFund(executions));
   renderSummary(unitTaskId, allItems, executions);
   renderAllocationTable(displayItems, executions);
   renderExecutionTable(unitTaskId, displayExecutions);
@@ -155,13 +175,16 @@ function renderBudgetTables() {
 function renderSummary(unitTaskId, items, executions) {
   const target = document.querySelector(`#${SUMMARY_ID}`);
   if (!target) return;
-  const displayItems = filterByFund(items);
-  const totalAll = getFundSummary(items, executions);
-  const current = getFundSummary(items.filter(item => getFundType(item) === 'CURRENT'), executions);
-  const carryover = getFundSummary(items.filter(item => getFundType(item) === 'CARRYOVER'), executions);
-  const filtered = getFundSummary(displayItems, executions);
-  const categorySummary = getCategorySummary(displayItems, executions);
-  const typeLabel = activeFundFilter === 'CARRYOVER' ? '이월사업비' : activeFundFilter === 'CURRENT' ? '당해연도 사업비' : '전체';
+  const trackItems = filterByTrack(items);
+  const displayItems = filterByFund(trackItems);
+  const trackExecutions = filterExecutionsByTrack(executions);
+  const displayExecutions = filterExecutionsByFund(trackExecutions);
+  const totalAll = getFundSummary(trackItems, trackExecutions);
+  const current = getFundSummary(trackItems.filter(item => getFundType(item) === 'CURRENT'), trackExecutions);
+  const carryover = getFundSummary(trackItems.filter(item => getFundType(item) === 'CARRYOVER'), trackExecutions);
+  const filtered = getFundSummary(displayItems, displayExecutions);
+  const categorySummary = getCategorySummary(displayItems, displayExecutions);
+  const typeLabel = `${getActiveTrackLabel(unitTaskId)} · ${activeFundFilter === 'CARRYOVER' ? '이월사업비' : activeFundFilter === 'CURRENT' ? '당해연도 사업비' : '전체'}`;
 
   target.innerHTML = `
     <div class="budget-dashboard-v2">
@@ -175,6 +198,7 @@ function renderSummary(unitTaskId, items, executions) {
           <button type="button" class="budget-fund-tab ${activeFundFilter === 'CURRENT' ? 'active current' : ''}" data-budget-fund="CURRENT">당해연도 사업비</button>
         </div>
       </div>
+      ${renderTrackTabs(unitTaskId)}
       <div class="budget-kpi-grid-v2">
         ${renderBudgetKpiCard('전체 집행률', `${totalAll.rate}%`, rateColor(totalAll.rate))}
         ${renderBudgetKpiCard('전체 잔액', formatWon(totalAll.remaining), '#f59e0b')}
@@ -185,80 +209,46 @@ function renderSummary(unitTaskId, items, executions) {
       </div>
       ${activeFundFilter === 'ALL' ? renderFundSplit(carryover, current) : ''}
       ${renderTotalProgress(typeLabel, filtered)}
+      ${unitTaskId === '1-1' ? renderTrackSplit(unitTaskId, items, executions) : ''}
       ${renderCategoryCards(categorySummary)}
-      ${renderBudgetInsightPanels(categorySummary, executions)}
+      ${renderBudgetInsightPanels(categorySummary, displayExecutions)}
       ${renderUnitRateComparison()}
     </div>`;
   bindBudgetDashboardControls();
 }
 
-function renderBudgetKpiCard(label, value, color) {
-  return `<div class="budget-kpi-card-v2"><div class="budget-kpi-value-v2" style="color:${color};">${value}</div><div class="budget-kpi-label-v2">${label}</div></div>`;
+function renderTrackTabs(unitTaskId) {
+  if (unitTaskId !== '1-1') return '';
+  return `<div class="budget-filter-group">${getTracksForUnit(unitTaskId, true).map(track => `<button type="button" class="budget-filter-btn ${activeTrackFilter === track.id ? 'active' : ''}" data-budget-track="${track.id}">${track.label}</button>`).join('')}</div>`;
 }
 
-function renderFundSplit(carryover, current) {
-  return `<div class="budget-split-row-v2">${renderFundSplitCard('이월사업비', carryover, '#0f6e56', '#d1fae5')}${renderFundSplitCard('당해연도 사업비', current, '#1e40af', '#dbeafe')}</div>`;
+function renderBudgetKpiCard(label, value, color) { return `<div class="budget-kpi-card-v2"><div class="budget-kpi-value-v2" style="color:${color};">${value}</div><div class="budget-kpi-label-v2">${label}</div></div>`; }
+function renderFundSplit(carryover, current) { return `<div class="budget-split-row-v2">${renderFundSplitCard('이월사업비', carryover, '#0f6e56', '#d1fae5')}${renderFundSplitCard('당해연도 사업비', current, '#1e40af', '#dbeafe')}</div>`; }
+function renderFundSplitCard(label, summary, color, bg) { return `<div class="budget-split-card-v2"><div class="budget-split-head-v2" style="background:${bg};color:${color};"><strong>${label}</strong><span>${summary.rate}% 집행</span></div><div class="budget-split-body-v2"><div class="budget-mini-track-v2"><div class="budget-mini-fill-v2" style="width:${Math.min(summary.rate, 100)}%;background:${color};"></div></div><div class="budget-split-numbers-v2"><span>편성 <b>${formatManwon(summary.allocated)}</b></span><span>집행 <b>${formatManwon(summary.executed)}</b></span><span>잔액 <b>${formatManwon(summary.remaining)}</b></span></div></div></div>`; }
+function renderTotalProgress(label, summary) { const color = rateColor(summary.rate); return `<div class="budget-total-bar-v2"><div class="budget-total-head-v2"><strong>${label} 집행 현황</strong><span style="color:${color};">${summary.rate}%</span></div><div class="budget-total-track-v2"><div class="budget-total-fill-v2" style="width:${Math.min(summary.rate, 100)}%;background:${color};"></div></div><div class="budget-total-legend-v2"><span><i style="background:${color};"></i>집행 ${formatWon(summary.executed)}</span><span><i style="background:#e5e7eb;"></i>잔액 ${formatWon(summary.remaining)}</span></div></div>`; }
+
+function renderTrackSplit(unitTaskId, items, executions) {
+  const rows = getTracksForUnit(unitTaskId).map(track => ({ track, summary: getFundSummary(filterByFund(items.filter(item => getTrackId(item) === track.id)), filterExecutionsByFund(executions.filter(row => getTrackId(row) === track.id))) }));
+  return `<section class="budget-panel-v2"><div class="budget-panel-head-v2"><strong>1-1 분야별 예산 현황</strong><span>바이오 · 반도체 · 물류</span></div><div class="budget-category-grid-v2">${rows.map(({ track, summary }, index) => renderTrackCard(track, summary, index)).join('')}</div></section>`;
 }
 
-function renderFundSplitCard(label, summary, color, bg) {
-  return `<div class="budget-split-card-v2"><div class="budget-split-head-v2" style="background:${bg};color:${color};"><strong>${label}</strong><span>${summary.rate}% 집행</span></div><div class="budget-split-body-v2"><div class="budget-mini-track-v2"><div class="budget-mini-fill-v2" style="width:${Math.min(summary.rate, 100)}%;background:${color};"></div></div><div class="budget-split-numbers-v2"><span>편성 <b>${formatManwon(summary.allocated)}</b></span><span>집행 <b>${formatManwon(summary.executed)}</b></span><span>잔액 <b>${formatManwon(summary.remaining)}</b></span></div></div></div>`;
-}
-
-function renderTotalProgress(label, summary) {
-  const color = rateColor(summary.rate);
-  return `<div class="budget-total-bar-v2"><div class="budget-total-head-v2"><strong>${label} 집행 현황</strong><span style="color:${color};">${summary.rate}%</span></div><div class="budget-total-track-v2"><div class="budget-total-fill-v2" style="width:${Math.min(summary.rate, 100)}%;background:${color};"></div></div><div class="budget-total-legend-v2"><span><i style="background:${color};"></i>집행 ${formatWon(summary.executed)}</span><span><i style="background:#e5e7eb;"></i>잔액 ${formatWon(summary.remaining)}</span></div></div>`;
-}
-
-function renderCategoryCards(summaryRows) {
-  return `<section class="budget-panel-v2"><div class="budget-panel-head-v2"><strong>비목별 집행 현황</strong><span>${summaryRows.length}개 비목</span></div><div class="budget-category-grid-v2">${summaryRows.length ? summaryRows.map((row, index) => renderCategoryCard(row, index)).join('') : '<div class="budget-empty-v2">해당 재원구분의 비목이 없습니다.</div>'}</div></section>`;
-}
-
-function renderCategoryCard(row, index) {
+function renderTrackCard(track, summary, index) {
   const color = CATEGORY_COLORS[index % CATEGORY_COLORS.length];
-  const rColor = rateColor(row.rate);
-  return `<div class="budget-category-card-v2"><div class="budget-category-name-v2"><i style="background:${color};"></i>${shorten(row.category, 28)}</div><div class="budget-category-rate-v2" style="color:${rColor};">${row.rate}%</div><div class="budget-category-track-v2"><div style="width:${Math.min(row.rate, 100)}%;background:${rColor};"></div></div><div class="budget-category-numbers-v2"><div><span>편성</span><strong>${formatManwon(row.allocated)}</strong></div><div><span>집행</span><strong>${formatManwon(row.executed)}</strong></div><div class="wide"><span>잔액</span><strong>${formatManwon(row.remaining)}</strong></div></div></div>`;
+  return `<div class="budget-category-card-v2"><div class="budget-category-name-v2"><i style="background:${color};"></i>${track.label}</div><div class="budget-category-rate-v2" style="color:${rateColor(summary.rate)};">${summary.rate}%</div><div class="budget-category-track-v2"><div style="width:${Math.min(summary.rate, 100)}%;background:${rateColor(summary.rate)};"></div></div><div class="budget-category-numbers-v2"><div><span>편성</span><strong>${formatManwon(summary.allocated)}</strong></div><div><span>집행</span><strong>${formatManwon(summary.executed)}</strong></div><div class="wide"><span>잔액</span><strong>${formatManwon(summary.remaining)}</strong></div></div></div>`;
 }
 
-function renderBudgetInsightPanels(categorySummary, executions) {
-  return `<div class="budget-insight-grid-v2">${renderRiskCategories(categorySummary)}${renderTopRemaining(categorySummary)}${renderRecentExecutions(executions)}</div>`;
-}
-
-function renderRiskCategories(rows) {
-  const risks = rows.filter(row => row.allocated > 0 && (row.rate >= 90 || row.rate < 30)).sort((a, b) => b.rate - a.rate).slice(0, 5);
-  return `<section class="budget-panel-v2"><div class="budget-panel-head-v2"><strong>집행 위험 비목</strong><span>90% 이상 또는 30% 미만</span></div><div class="budget-list-v2">${risks.length ? risks.map(row => `<div class="budget-list-item-v2"><div><strong>${shorten(row.category, 26)}</strong><span>${row.rate >= 90 ? '과다집행 주의' : '집행부진'}</span></div><b style="color:${row.rate >= 90 ? '#ef4444' : '#f59e0b'};">${row.rate}%</b></div>`).join('') : '<div class="budget-empty-v2">현재 위험 비목이 없습니다.</div>'}</div></section>`;
-}
-
-function renderTopRemaining(rows) {
-  const topRows = rows.filter(row => row.remaining > 0).sort((a, b) => b.remaining - a.remaining).slice(0, 5);
-  return `<section class="budget-panel-v2"><div class="budget-panel-head-v2"><strong>잔액 TOP 5</strong><span>잔액 기준</span></div><div class="budget-list-v2">${topRows.length ? topRows.map(row => `<div class="budget-list-item-v2"><div><strong>${shorten(row.category, 26)}</strong><span>집행률 ${row.rate}%</span></div><b>${formatManwon(row.remaining)}</b></div>`).join('') : '<div class="budget-empty-v2">잔액이 있는 비목이 없습니다.</div>'}</div></section>`;
-}
-
-function renderRecentExecutions(executions) {
-  const rows = executions.slice().sort((a, b) => String(b.executionDate || '').localeCompare(String(a.executionDate || ''))).slice(0, 10);
-  return `<section class="budget-panel-v2"><div class="budget-panel-head-v2"><strong>최근 집행내역</strong><span>최근 10건</span></div><div class="budget-list-v2">${rows.length ? rows.map(row => `<div class="budget-list-item-v2"><div><strong>${row.programName || '-'}</strong><span>${row.executionDate || '-'} · ${getFundLabel(row)} · ${shorten(row.category || '-', 18)}</span></div><b>${formatWon(row.executed)}</b></div>`).join('') : '<div class="budget-empty-v2">집행내역이 없습니다.</div>'}</div></section>`;
-}
-
-function renderUnitRateComparison() {
-  const rows = BUDGET_UNITS.map(unit => {
-    const items = activeFundFilter === 'ALL' ? getManagedBudgetItems(unit.id) : getManagedBudgetItems(unit.id).filter(item => getFundType(item) === activeFundFilter);
-    const executions = activeFundFilter === 'ALL' ? getCollection('budgets').filter(row => row.unitTaskId === unit.id) : getCollection('budgets').filter(row => row.unitTaskId === unit.id && getFundType(row) === activeFundFilter);
-    return { unit, summary: getFundSummary(items, executions) };
-  });
-  return `<section class="budget-panel-v2"><div class="budget-panel-head-v2"><strong>단위과제별 집행률 비교</strong><span>${activeFundFilter === 'ALL' ? '전체' : getFundLabel({ fundType: activeFundFilter })}</span></div><div class="budget-unit-rate-list-v2">${rows.map(({ unit, summary }) => `<div class="budget-unit-rate-row-v2"><div><strong>${unit.name}</strong><span>${formatManwon(summary.executed)} / ${formatManwon(summary.allocated)}</span></div><div class="budget-unit-rate-track-v2"><div style="width:${Math.min(summary.rate, 100)}%;background:${rateColor(summary.rate)};"></div></div><b>${summary.rate}%</b></div>`).join('')}</div></section>`;
-}
+function renderCategoryCards(summaryRows) { return `<section class="budget-panel-v2"><div class="budget-panel-head-v2"><strong>비목별 집행 현황</strong><span>${summaryRows.length}개 비목</span></div><div class="budget-category-grid-v2">${summaryRows.length ? summaryRows.map((row, index) => renderCategoryCard(row, index)).join('') : '<div class="budget-empty-v2">해당 조건의 비목이 없습니다.</div>'}</div></section>`; }
+function renderCategoryCard(row, index) { const color = CATEGORY_COLORS[index % CATEGORY_COLORS.length]; const rColor = rateColor(row.rate); return `<div class="budget-category-card-v2"><div class="budget-category-name-v2"><i style="background:${color};"></i>${shorten(row.category, 28)}</div><div class="budget-category-rate-v2" style="color:${rColor};">${row.rate}%</div><div class="budget-category-track-v2"><div style="width:${Math.min(row.rate, 100)}%;background:${rColor};"></div></div><div class="budget-category-numbers-v2"><div><span>편성</span><strong>${formatManwon(row.allocated)}</strong></div><div><span>집행</span><strong>${formatManwon(row.executed)}</strong></div><div class="wide"><span>잔액</span><strong>${formatManwon(row.remaining)}</strong></div></div></div>`; }
+function renderBudgetInsightPanels(categorySummary, executions) { return `<div class="budget-insight-grid-v2">${renderRiskCategories(categorySummary)}${renderTopRemaining(categorySummary)}${renderRecentExecutions(executions)}</div>`; }
+function renderRiskCategories(rows) { const risks = rows.filter(row => row.allocated > 0 && (row.rate >= 90 || row.rate < 30)).sort((a, b) => b.rate - a.rate).slice(0, 5); return `<section class="budget-panel-v2"><div class="budget-panel-head-v2"><strong>집행 위험 비목</strong><span>90% 이상 또는 30% 미만</span></div><div class="budget-list-v2">${risks.length ? risks.map(row => `<div class="budget-list-item-v2"><div><strong>${shorten(row.category, 26)}</strong><span>${row.rate >= 90 ? '과다집행 주의' : '집행부진'}</span></div><b style="color:${row.rate >= 90 ? '#ef4444' : '#f59e0b'};">${row.rate}%</b></div>`).join('') : '<div class="budget-empty-v2">현재 위험 비목이 없습니다.</div>'}</div></section>`; }
+function renderTopRemaining(rows) { const topRows = rows.filter(row => row.remaining > 0).sort((a, b) => b.remaining - a.remaining).slice(0, 5); return `<section class="budget-panel-v2"><div class="budget-panel-head-v2"><strong>잔액 TOP 5</strong><span>잔액 기준</span></div><div class="budget-list-v2">${topRows.length ? topRows.map(row => `<div class="budget-list-item-v2"><div><strong>${shorten(row.category, 26)}</strong><span>집행률 ${row.rate}%</span></div><b>${formatManwon(row.remaining)}</b></div>`).join('') : '<div class="budget-empty-v2">잔액이 있는 비목이 없습니다.</div>'}</div></section>`; }
+function renderRecentExecutions(executions) { const rows = executions.slice().sort((a, b) => String(b.executionDate || '').localeCompare(String(a.executionDate || ''))).slice(0, 10); return `<section class="budget-panel-v2"><div class="budget-panel-head-v2"><strong>최근 집행내역</strong><span>최근 10건</span></div><div class="budget-list-v2">${rows.length ? rows.map(row => `<div class="budget-list-item-v2"><div><strong>${row.programName || '-'}</strong><span>${row.executionDate || '-'} · ${getTrackLabel(row)} · ${getFundLabel(row)}</span></div><b>${formatWon(row.executed)}</b></div>`).join('') : '<div class="budget-empty-v2">집행내역이 없습니다.</div>'}</div></section>`; }
+function renderUnitRateComparison() { const rows = BUDGET_UNITS.map(unit => { const items = filterByFund(getManagedBudgetItems(unit.id)); const executions = filterExecutionsByFund(getCollection('budgets').filter(row => row.unitTaskId === unit.id)); return { unit, summary: getFundSummary(items, executions) }; }); return `<section class="budget-panel-v2"><div class="budget-panel-head-v2"><strong>단위과제별 집행률 비교</strong><span>${activeFundFilter === 'ALL' ? '전체' : getFundLabel({ fundType: activeFundFilter })}</span></div><div class="budget-unit-rate-list-v2">${rows.map(({ unit, summary }) => `<div class="budget-unit-rate-row-v2"><div><strong>${unit.name}</strong><span>${formatManwon(summary.executed)} / ${formatManwon(summary.allocated)}</span></div><div class="budget-unit-rate-track-v2"><div style="width:${Math.min(summary.rate, 100)}%;background:${rateColor(summary.rate)};"></div></div><b>${summary.rate}%</b></div>`).join('')}</div></section>`; }
 
 function bindBudgetDashboardControls() {
-  document.querySelectorAll('[data-budget-unit]').forEach(button => {
-    button.addEventListener('click', () => {
-      const select = document.querySelector(`#${UNIT_SELECT_ID}`);
-      if (select) select.value = button.dataset.budgetUnit;
-      syncAllocationUnitWithBudgetUnit();
-      updateBudgetItemOptions();
-      updateBudgetBalance();
-      renderBudgetTables();
-    });
-  });
+  document.querySelectorAll('[data-budget-unit]').forEach(button => button.addEventListener('click', () => { const select = document.querySelector(`#${UNIT_SELECT_ID}`); if (select) select.value = button.dataset.budgetUnit; activeTrackFilter = 'ALL'; syncAllocationUnitWithBudgetUnit(); updateBudgetItemOptions(); updateBudgetBalance(); renderBudgetTables(); }));
   document.querySelectorAll('[data-budget-fund]').forEach(button => button.addEventListener('click', () => { activeFundFilter = button.dataset.budgetFund || 'ALL'; renderBudgetTables(); }));
+  document.querySelectorAll('[data-budget-track]').forEach(button => button.addEventListener('click', () => { activeTrackFilter = button.dataset.budgetTrack || 'ALL'; renderBudgetTables(); }));
 }
 
 function updateBudgetItemOptions() {
@@ -266,7 +256,7 @@ function updateBudgetItemOptions() {
   const select = document.querySelector(`#${ITEM_SELECT_ID}`);
   if (!select) return;
   const items = getManagedBudgetItems(unitTaskId);
-  select.innerHTML = items.length ? items.map(item => `<option value="${item.id}">[${getFundLabel(item)}] ${item.riseCategory} / ${shorten(item.erpItem, 64)}</option>`).join('') : '<option value="">편성된 예산항목 없음</option>';
+  select.innerHTML = items.length ? items.map(item => `<option value="${item.id}">[${getTrackLabel(item)}] [${getFundLabel(item)}] ${item.riseCategory} / ${shorten(item.erpItem, 58)}</option>`).join('') : '<option value="">편성된 예산항목 없음</option>';
 }
 
 function updateBudgetBalance() {
@@ -276,145 +266,41 @@ function updateBudgetBalance() {
   const item = getManagedBudgetItem(itemId);
   if (!item) return target.value = '편성 예산 없음';
   const executions = getCollection('budgets');
-  target.value = `${getFundLabel(item)} / 편성 ${formatWon(item.allocated)} / 집행 ${formatWon(getManagedExecuted(item, executions))} / 잔액 ${formatWon(getManagedRemaining(item, executions))} / 집행률 ${getManagedRate(item, executions)}%`;
+  target.value = `${getTrackLabel(item)} / ${getFundLabel(item)} / 편성 ${formatWon(item.allocated)} / 집행 ${formatWon(getManagedExecuted(item, executions))} / 잔액 ${formatWon(getManagedRemaining(item, executions))} / 집행률 ${getManagedRate(item, executions)}%`;
 }
 
-function syncAllocationUnitWithBudgetUnit() {
-  const unitTaskId = getSelectedUnitId();
-  const form = document.querySelector(`#${ALLOC_FORM_ID}`);
-  if (!unitTaskId || !form) return;
-  form.querySelector('[name="unitTaskId"]').value = unitTaskId;
-  updateAllocationTargetOptions();
-}
+function syncAllocationUnitWithBudgetUnit() { const unitTaskId = getSelectedUnitId(); const form = document.querySelector(`#${ALLOC_FORM_ID}`); if (!unitTaskId || !form) return; form.querySelector('[name="unitTaskId"]').value = unitTaskId; updateAllocationTrackOptions(); updateAllocationTargetOptions(); }
+function updateAllocationTrackOptions() { const form = document.querySelector(`#${ALLOC_FORM_ID}`); const unitTaskId = form?.querySelector('[name="unitTaskId"]')?.value || getSelectedUnitId(); const select = document.querySelector(`#${ALLOC_TRACK_ID}`); if (!select) return; select.innerHTML = getTracksForUnit(unitTaskId).map(track => `<option value="${track.id}">${track.label}</option>`).join(''); }
+function updateAllocationTargetOptions() { const form = document.querySelector(`#${ALLOC_FORM_ID}`); const unitTaskId = form?.querySelector('[name="unitTaskId"]')?.value || getSelectedUnitId(); const select = document.querySelector(`#${ALLOC_TARGET_ID}`); if (!select) return; const items = getManagedBudgetItems(unitTaskId, { includeInactive: true }); select.innerHTML = `<option value="__new__">신규 항목 추가</option>${items.map(item => `<option value="${item.id}">${item.status === 'INACTIVE' ? '[사용중지] ' : ''}[${getTrackLabel(item)}] [${getFundLabel(item)}] ${item.riseCategory} / ${shorten(item.erpItem, 52)} / ${formatWon(item.allocated)}</option>`).join('')}`; }
+function loadAllocationToForm(itemId) { const form = document.querySelector(`#${ALLOC_FORM_ID}`); if (!form) return; const targetId = itemId || form.querySelector('[name="targetItemId"]')?.value; if (!targetId || targetId === '__new__') return clearAllocationForm(); const item = getManagedBudgetItem(targetId, { includeInactive: true }); if (!item) return showToast('편성항목을 찾을 수 없습니다.'); updateAllocationTrackOptions(); form.querySelector('[name="targetItemId"]').value = item.id; form.querySelector('[name="unitTaskId"]').value = item.unitTaskId; updateAllocationTrackOptions(); form.querySelector('[name="trackId"]').value = getTrackId(item); form.querySelector('[name="fundType"]').value = getFundType(item); form.querySelector('[name="riseCategory"]').value = item.riseCategory; form.querySelector('[name="erpItem"]').value = item.erpItem; form.querySelector('[name="allocated"]').value = item.allocated; form.querySelector('[name="allocationType"]').value = item.allocationType || '단위과제'; form.querySelector('[name="detail"]').value = item.detail || ''; document.querySelector(`#${ALLOC_DETAILS_ID}`)?.setAttribute('open', 'open'); }
+function clearAllocationForm(resetUnit = true) { const form = document.querySelector(`#${ALLOC_FORM_ID}`); if (!form) return; const unitTaskId = form.querySelector('[name="unitTaskId"]')?.value; form.reset(); if (!resetUnit && unitTaskId) form.querySelector('[name="unitTaskId"]').value = unitTaskId; updateAllocationTrackOptions(); updateAllocationTargetOptions(); document.querySelector(`#${ALLOC_DETAILS_ID}`)?.setAttribute('open', 'open'); }
+function disableAllocation() { const form = document.querySelector(`#${ALLOC_FORM_ID}`); const targetId = form?.querySelector('[name="targetItemId"]')?.value; if (!targetId || targetId === '__new__') return showToast('사용중지할 편성항목을 선택해 주세요.'); const item = getManagedBudgetItem(targetId, { includeInactive: true }); if (!item) return; upsertItem('budgetAllocations', { ...item, baseItemId: item.source === 'base' ? item.id : item.baseItemId || '', trackId: getTrackId(item), fundType: getFundType(item), status: 'INACTIVE', source: 'custom' }); addAllocationHistory({ previous: item, next: { ...item, trackId: getTrackId(item), fundType: getFundType(item), status: 'INACTIVE' }, action: '사용중지' }); showToast('편성항목이 사용중지 처리되었습니다.'); updateBudgetItemOptions(); updateBudgetBalance(); updateAllocationTargetOptions(); renderBudgetTables(); }
 
-function updateAllocationTargetOptions() {
-  const form = document.querySelector(`#${ALLOC_FORM_ID}`);
-  const unitTaskId = form?.querySelector('[name="unitTaskId"]')?.value || getSelectedUnitId();
-  const select = document.querySelector(`#${ALLOC_TARGET_ID}`);
-  if (!select) return;
-  const items = getManagedBudgetItems(unitTaskId, { includeInactive: true });
-  select.innerHTML = `<option value="__new__">신규 항목 추가</option>${items.map(item => `<option value="${item.id}">${item.status === 'INACTIVE' ? '[사용중지] ' : ''}[${getFundLabel(item)}] ${item.riseCategory} / ${shorten(item.erpItem, 58)} / ${formatWon(item.allocated)}</option>`).join('')}`;
-}
+function renderAllocationTable(items, executions) { const target = document.querySelector(`#${ALLOCATION_TABLE_ID}`); if (!target) return; if (!items.length) return target.innerHTML = createEmptyState({ title: '편성 항목 없음', description: '해당 조건의 편성내역이 없습니다.' }); const rows = items.map(item => ({ track: getTrackLabel(item), fundType: getFundLabel(item), riseCategory: item.riseCategory, erpItem: item.erpItem, allocationType: item.allocationType, allocated: formatWon(item.allocated), executed: formatWon(getManagedExecuted(item, executions)), remaining: formatWon(getManagedRemaining(item, executions)), rate: `${getManagedRate(item, executions)}%`, detail: item.detail || '-', action: `<button class="btn btn-outline" type="button" data-edit-budget-item="${item.id}">수정</button>` })); target.innerHTML = createTable({ columns: [{ key: 'track', label: '분야' }, { key: 'fundType', label: '재원구분' }, { key: 'riseCategory', label: 'RISE 사업비목' }, { key: 'erpItem', label: '산단 ERP 비목' }, { key: 'allocationType', label: '구분' }, { key: 'allocated', label: '편성액' }, { key: 'executed', label: '집행액' }, { key: 'remaining', label: '잔액' }, { key: 'rate', label: '집행률' }, { key: 'detail', label: '비고' }, { key: 'action', label: '관리' }], rows }); target.querySelectorAll('[data-edit-budget-item]').forEach(button => button.addEventListener('click', () => loadAllocationToForm(button.dataset.editBudgetItem))); }
+function renderExecutionTable(unitTaskId, executions) { const target = document.querySelector(`#${EXECUTION_TABLE_ID}`); if (!target) return; if (!executions.length) return target.innerHTML = createEmptyState({ title: '집행내역 없음', description: '해당 조건의 집행내역이 없습니다.' }); const rows = executions.map(row => ({ executionDate: row.executionDate || '-', track: getTrackLabel(row), fundType: getFundLabel(row), programName: row.programName || '-', category: row.category || '-', erpItem: row.erpItem || '-', executed: formatWon(row.executed), memo: row.memo || '-' })); target.innerHTML = `${createTable({ columns: [{ key: 'executionDate', label: '집행일자' }, { key: 'track', label: '분야' }, { key: 'fundType', label: '재원구분' }, { key: 'programName', label: '프로그램명' }, { key: 'category', label: 'RISE 사업비목' }, { key: 'erpItem', label: '산단 ERP 비목' }, { key: 'executed', label: '집행액' }, { key: 'memo', label: '비고' }], rows })}<div class="form-actions" style="margin-top:12px;"><button class="btn btn-outline" id="deleteLatestBudgetExecution" type="button">최근 집행내역 삭제</button></div>`; document.querySelector('#deleteLatestBudgetExecution')?.addEventListener('click', () => { const latest = getCollection('budgets').filter(row => row.unitTaskId === unitTaskId).at(-1); if (!latest) return; removeItem('budgets', latest.id); showToast('최근 집행내역이 삭제되었습니다.'); updateBudgetItemOptions(); updateBudgetBalance(); renderBudgetTables(); }); }
+function renderHistoryTable(unitTaskId) { const target = document.querySelector(`#${HISTORY_TABLE_ID}`); if (!target) return; const rows = getCollection('budgetAllocationHistory').filter(row => row.unitTaskId === unitTaskId).slice().reverse().map(row => ({ ...row, track: getTrackLabel(row), fundType: getFundLabel(row), previousAllocated: formatWon(row.previousAllocated), nextAllocated: formatWon(row.nextAllocated), diff: formatWon(row.diff) })); if (!rows.length) return target.innerHTML = createEmptyState({ title: '변경 이력 없음', description: '편성항목 추가·수정·사용중지 시 이력이 자동 기록됩니다.' }); target.innerHTML = createTable({ columns: [{ key: 'changedAt', label: '변경일시' }, { key: 'action', label: '구분' }, { key: 'track', label: '분야' }, { key: 'fundType', label: '재원구분' }, { key: 'riseCategory', label: 'RISE 사업비목' }, { key: 'previousAllocated', label: '기존 편성액' }, { key: 'nextAllocated', label: '변경 편성액' }, { key: 'diff', label: '증감' }, { key: 'reason', label: '사유' }], rows }); }
 
-function loadAllocationToForm(itemId) {
-  const form = document.querySelector(`#${ALLOC_FORM_ID}`);
-  if (!form) return;
-  const targetId = itemId || form.querySelector('[name="targetItemId"]')?.value;
-  if (!targetId || targetId === '__new__') return clearAllocationForm();
-  const item = getManagedBudgetItem(targetId, { includeInactive: true });
-  if (!item) return showToast('편성항목을 찾을 수 없습니다.');
-  form.querySelector('[name="targetItemId"]').value = item.id;
-  form.querySelector('[name="unitTaskId"]').value = item.unitTaskId;
-  form.querySelector('[name="fundType"]').value = getFundType(item);
-  form.querySelector('[name="riseCategory"]').value = item.riseCategory;
-  form.querySelector('[name="erpItem"]').value = item.erpItem;
-  form.querySelector('[name="allocated"]').value = item.allocated;
-  form.querySelector('[name="allocationType"]').value = item.allocationType || '단위과제';
-  form.querySelector('[name="detail"]').value = item.detail || '';
-  document.querySelector(`#${ALLOC_DETAILS_ID}`)?.setAttribute('open', 'open');
-}
-
-function clearAllocationForm(resetUnit = true) {
-  const form = document.querySelector(`#${ALLOC_FORM_ID}`);
-  if (!form) return;
-  const unitTaskId = form.querySelector('[name="unitTaskId"]')?.value;
-  form.reset();
-  if (!resetUnit && unitTaskId) form.querySelector('[name="unitTaskId"]').value = unitTaskId;
-  updateAllocationTargetOptions();
-  document.querySelector(`#${ALLOC_DETAILS_ID}`)?.setAttribute('open', 'open');
-}
-
-function disableAllocation() {
-  const form = document.querySelector(`#${ALLOC_FORM_ID}`);
-  const targetId = form?.querySelector('[name="targetItemId"]')?.value;
-  if (!targetId || targetId === '__new__') return showToast('사용중지할 편성항목을 선택해 주세요.');
-  const item = getManagedBudgetItem(targetId, { includeInactive: true });
-  if (!item) return;
-  upsertItem('budgetAllocations', { ...item, baseItemId: item.source === 'base' ? item.id : item.baseItemId || '', fundType: getFundType(item), status: 'INACTIVE', source: 'custom' });
-  addAllocationHistory({ previous: item, next: { ...item, fundType: getFundType(item), status: 'INACTIVE' }, action: '사용중지' });
-  showToast('편성항목이 사용중지 처리되었습니다.');
-  updateBudgetItemOptions();
-  updateBudgetBalance();
-  updateAllocationTargetOptions();
-  renderBudgetTables();
-}
-
-function renderAllocationTable(items, executions) {
-  const target = document.querySelector(`#${ALLOCATION_TABLE_ID}`);
-  if (!target) return;
-  if (!items.length) return target.innerHTML = createEmptyState({ title: '편성 항목 없음', description: '해당 조건의 편성내역이 없습니다.' });
-  const rows = items.map(item => ({ fundType: getFundLabel(item), riseCategory: item.riseCategory, erpItem: item.erpItem, allocationType: item.allocationType, allocated: formatWon(item.allocated), executed: formatWon(getManagedExecuted(item, executions)), remaining: formatWon(getManagedRemaining(item, executions)), rate: `${getManagedRate(item, executions)}%`, detail: item.detail || '-', action: `<button class="btn btn-outline" type="button" data-edit-budget-item="${item.id}">수정</button>` }));
-  target.innerHTML = createTable({ columns: [
-    { key: 'fundType', label: '재원구분' }, { key: 'riseCategory', label: 'RISE 사업비목' }, { key: 'erpItem', label: '산단 ERP 비목' }, { key: 'allocationType', label: '구분' }, { key: 'allocated', label: '편성액' }, { key: 'executed', label: '집행액' }, { key: 'remaining', label: '잔액' }, { key: 'rate', label: '집행률' }, { key: 'detail', label: '비고' }, { key: 'action', label: '관리' }
-  ], rows });
-  target.querySelectorAll('[data-edit-budget-item]').forEach(button => button.addEventListener('click', () => loadAllocationToForm(button.dataset.editBudgetItem)));
-}
-
-function renderExecutionTable(unitTaskId, executions) {
-  const target = document.querySelector(`#${EXECUTION_TABLE_ID}`);
-  if (!target) return;
-  if (!executions.length) return target.innerHTML = createEmptyState({ title: '집행내역 없음', description: '해당 조건의 집행내역이 없습니다.' });
-  const rows = executions.map(row => ({ executionDate: row.executionDate || '-', fundType: getFundLabel(row), programName: row.programName || '-', category: row.category || '-', erpItem: row.erpItem || '-', executed: formatWon(row.executed), memo: row.memo || '-' }));
-  target.innerHTML = `${createTable({ columns: [
-    { key: 'executionDate', label: '집행일자' }, { key: 'fundType', label: '재원구분' }, { key: 'programName', label: '프로그램명' }, { key: 'category', label: 'RISE 사업비목' }, { key: 'erpItem', label: '산단 ERP 비목' }, { key: 'executed', label: '집행액' }, { key: 'memo', label: '비고' }
-  ], rows })}<div class="form-actions" style="margin-top:12px;"><button class="btn btn-outline" id="deleteLatestBudgetExecution" type="button">최근 집행내역 삭제</button></div>`;
-  document.querySelector('#deleteLatestBudgetExecution')?.addEventListener('click', () => {
-    const latest = getCollection('budgets').filter(row => row.unitTaskId === unitTaskId).at(-1);
-    if (!latest) return;
-    removeItem('budgets', latest.id);
-    showToast('최근 집행내역이 삭제되었습니다.');
-    updateBudgetItemOptions();
-    updateBudgetBalance();
-    renderBudgetTables();
-  });
-}
-
-function renderHistoryTable(unitTaskId) {
-  const target = document.querySelector(`#${HISTORY_TABLE_ID}`);
-  if (!target) return;
-  const rows = getCollection('budgetAllocationHistory').filter(row => row.unitTaskId === unitTaskId).slice().reverse().map(row => ({ ...row, fundType: getFundLabel(row), previousAllocated: formatWon(row.previousAllocated), nextAllocated: formatWon(row.nextAllocated), diff: formatWon(row.diff) }));
-  if (!rows.length) return target.innerHTML = createEmptyState({ title: '변경 이력 없음', description: '편성항목 추가·수정·사용중지 시 이력이 자동 기록됩니다.' });
-  target.innerHTML = createTable({ columns: [
-    { key: 'changedAt', label: '변경일시' }, { key: 'action', label: '구분' }, { key: 'fundType', label: '재원구분' }, { key: 'riseCategory', label: 'RISE 사업비목' }, { key: 'previousAllocated', label: '기존 편성액' }, { key: 'nextAllocated', label: '변경 편성액' }, { key: 'diff', label: '증감' }, { key: 'reason', label: '사유' }
-  ], rows });
-}
-
-function getManagedBudgetItems(unitTaskId, options = {}) {
-  const customRows = getCollection('budgetAllocations');
-  const customByBase = new Map(customRows.filter(row => row.baseItemId).map(row => [row.baseItemId, row]));
-  const customOnly = customRows.filter(row => !row.baseItemId && row.unitTaskId === unitTaskId);
-  const baseItems = getBudgetItems(unitTaskId).map(item => {
-    const override = customByBase.get(item.id);
-    return override ? { ...item, ...override, fundType: getFundType(override), source: 'custom' } : { ...item, fundType: 'CURRENT', source: 'base', status: 'ACTIVE' };
-  });
-  return [...baseItems, ...customOnly.map(item => ({ ...item, fundType: getFundType(item) }))].filter(item => item.unitTaskId === unitTaskId).filter(item => options.includeInactive || item.status !== 'INACTIVE');
-}
-
-function getManagedBudgetItem(itemId, options = {}) {
-  const allUnits = BUDGET_UNITS.flatMap(unit => getManagedBudgetItems(unit.id, { includeInactive: true }));
-  const item = allUnits.find(row => row.id === itemId || row.baseItemId === itemId);
-  if (!item) return null;
-  if (!options.includeInactive && item.status === 'INACTIVE') return null;
-  return item;
-}
-
-function getManagedExecuted(item, executions = []) {
-  if (!item) return 0;
-  const linkedIds = [item.id, item.baseItemId].filter(Boolean);
-  const fundType = getFundType(item);
-  return executions.filter(row => row.unitTaskId === item.unitTaskId).filter(row => getFundType(row) === fundType).filter(row => linkedIds.includes(row.budgetItemId) || (!row.budgetItemId && row.category === item.riseCategory)).reduce((sum, row) => sum + Number(row.executed || 0), 0);
-}
-
+function getManagedBudgetItems(unitTaskId, options = {}) { const customRows = getCollection('budgetAllocations'); const customByBase = new Map(customRows.filter(row => row.baseItemId).map(row => [row.baseItemId, row])); const customOnly = customRows.filter(row => !row.baseItemId && row.unitTaskId === unitTaskId); const baseItems = getBudgetItems(unitTaskId).map(item => { const override = customByBase.get(item.id); return override ? { ...item, ...override, trackId: getTrackId(override), fundType: getFundType(override), source: 'custom' } : { ...item, trackId: getDefaultTrackId(unitTaskId), fundType: 'CURRENT', source: 'base', status: 'ACTIVE' }; }); return [...baseItems, ...customOnly.map(item => ({ ...item, trackId: getTrackId(item), fundType: getFundType(item) }))].filter(item => item.unitTaskId === unitTaskId).filter(item => options.includeInactive || item.status !== 'INACTIVE'); }
+function getManagedBudgetItem(itemId, options = {}) { const allUnits = BUDGET_UNITS.flatMap(unit => getManagedBudgetItems(unit.id, { includeInactive: true })); const item = allUnits.find(row => row.id === itemId || row.baseItemId === itemId); if (!item) return null; if (!options.includeInactive && item.status === 'INACTIVE') return null; return item; }
+function getManagedExecuted(item, executions = []) { if (!item) return 0; const linkedIds = [item.id, item.baseItemId].filter(Boolean); const fundType = getFundType(item); const trackId = getTrackId(item); return executions.filter(row => row.unitTaskId === item.unitTaskId).filter(row => getFundType(row) === fundType).filter(row => getTrackId(row) === trackId).filter(row => linkedIds.includes(row.budgetItemId) || (!row.budgetItemId && row.category === item.riseCategory)).reduce((sum, row) => sum + Number(row.executed || 0), 0); }
 function getManagedRemaining(item, executions = []) { return item ? Math.max(Number(item.allocated || 0) - getManagedExecuted(item, executions), 0) : 0; }
 function getManagedRate(item, executions = []) { const allocated = Number(item?.allocated || 0); return allocated ? round1((getManagedExecuted(item, executions) / allocated) * 100) : 0; }
 function getFundSummary(items, executions) { const allocated = items.reduce((sum, item) => sum + Number(item.allocated || 0), 0); const executed = items.reduce((sum, item) => sum + getManagedExecuted(item, executions), 0); const remaining = Math.max(allocated - executed, 0); const rate = allocated ? round1((executed / allocated) * 100) : 0; return { allocated, executed, remaining, rate }; }
 function getCategorySummary(items, executions) { const map = new Map(); items.forEach(item => { const key = item.riseCategory || '기타'; const row = map.get(key) || { category: key, allocated: 0, executed: 0, remaining: 0, rate: 0 }; row.allocated += Number(item.allocated || 0); row.executed += getManagedExecuted(item, executions); map.set(key, row); }); return [...map.values()].map(row => ({ ...row, remaining: Math.max(row.allocated - row.executed, 0), rate: row.allocated ? round1((row.executed / row.allocated) * 100) : 0 })); }
 function filterByFund(items) { return activeFundFilter === 'ALL' ? items : items.filter(item => getFundType(item) === activeFundFilter); }
 function filterExecutionsByFund(executions) { return activeFundFilter === 'ALL' ? executions : executions.filter(row => getFundType(row) === activeFundFilter); }
-function addAllocationHistory({ previous, next, action }) { const prevAmount = Number(previous?.allocated || 0); const nextAmount = Number(next?.allocated || 0); upsertItem('budgetAllocationHistory', { id: `budget_history_${Date.now()}`, unitTaskId: next.unitTaskId || previous?.unitTaskId || '', budgetItemId: next.id || previous?.id || '', fundType: getFundType(next || previous), changedAt: new Date().toISOString().slice(0, 19).replace('T', ' '), action, riseCategory: next.riseCategory || previous?.riseCategory || '', previousAllocated: prevAmount, nextAllocated: nextAmount, diff: nextAmount - prevAmount, reason: next.detail || previous?.detail || '-' }); }
+function filterByTrack(items) { const unitTaskId = getSelectedUnitId(); return unitTaskId === '1-1' && activeTrackFilter !== 'ALL' ? items.filter(item => getTrackId(item) === activeTrackFilter) : items; }
+function filterExecutionsByTrack(executions) { const unitTaskId = getSelectedUnitId(); return unitTaskId === '1-1' && activeTrackFilter !== 'ALL' ? executions.filter(row => getTrackId(row) === activeTrackFilter) : executions; }
+function addAllocationHistory({ previous, next, action }) { const prevAmount = Number(previous?.allocated || 0); const nextAmount = Number(next?.allocated || 0); upsertItem('budgetAllocationHistory', { id: `budget_history_${Date.now()}`, unitTaskId: next.unitTaskId || previous?.unitTaskId || '', budgetItemId: next.id || previous?.id || '', trackId: getTrackId(next || previous), fundType: getFundType(next || previous), changedAt: new Date().toISOString().slice(0, 19).replace('T', ' '), action, riseCategory: next.riseCategory || previous?.riseCategory || '', previousAllocated: prevAmount, nextAllocated: nextAmount, diff: nextAmount - prevAmount, reason: next.detail || previous?.detail || '-' }); }
 function getSelectedUnitId() { return document.querySelector(`#${UNIT_SELECT_ID}`)?.value || BUDGET_UNITS[0].id; }
 function getFundType(item) { return item?.fundType === 'CARRYOVER' ? 'CARRYOVER' : 'CURRENT'; }
 function getFundLabel(item) { return FUND_TYPES.find(type => type.id === getFundType(item))?.label || '당해연도 사업비'; }
+function getTracksForUnit(unitTaskId, includeAll = false) { const tracks = TRACKS_BY_UNIT[unitTaskId] || [{ id: getDefaultTrackId(unitTaskId), label: getUnitName(unitTaskId) }]; return includeAll ? tracks : tracks.filter(track => track.id !== 'ALL'); }
+function getDefaultTrackId(unitTaskId) { if (unitTaskId === '1-1') return 'UNASSIGNED'; return TRACKS_BY_UNIT[unitTaskId]?.[0]?.id || unitTaskId; }
+function getTrackId(item) { if (!item) return 'UNASSIGNED'; if (item.trackId) return item.trackId; return getDefaultTrackId(item.unitTaskId); }
+function getTrackLabel(item) { const unitTaskId = item?.unitTaskId || getSelectedUnitId(); const trackId = typeof item === 'string' ? item : getTrackId(item); return getTracksForUnit(unitTaskId, true).find(track => track.id === trackId)?.label || trackId; }
+function getActiveTrackLabel(unitTaskId) { if (unitTaskId !== '1-1') return getUnitName(unitTaskId); return getTracksForUnit(unitTaskId, true).find(track => track.id === activeTrackFilter)?.label || '1-1 전체'; }
+function getUnitName(unitTaskId) { return BUDGET_UNITS.find(unit => unit.id === unitTaskId)?.name || unitTaskId; }
 function rateColor(rate) { return rate >= 80 ? '#ef4444' : rate >= 50 ? '#f59e0b' : '#3b82f6'; }
 function shorten(value, max = 48) { const text = String(value || ''); return text.length > max ? `${text.slice(0, max)}...` : text; }
 function formatWon(value) { return `${Number(value || 0).toLocaleString()}원`; }
