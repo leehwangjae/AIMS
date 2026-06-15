@@ -49,7 +49,7 @@ function renderExecutionForm() {
     <form id="${EXEC_FORM_ID}" class="form-grid">
       <label class="form-field"><span>단위과제</span><select name="unitTaskId" id="${UNIT_SELECT_ID}">${BUDGET_UNITS.map(unit => `<option value="${unit.id}">${unit.name}</option>`).join('')}</select></label>
       <label class="form-field"><span>예산항목</span><select name="budgetItemId" id="${ITEM_SELECT_ID}"></select></label>
-      <label class="form-field"><span>현재 잔액</span><input id="${BALANCE_ID}" type="text" value="0원" readonly /></label>
+      <label class="form-field full"><span>현재 예산현황</span><input id="${BALANCE_ID}" type="text" value="0원" readonly /></label>
       <label class="form-field"><span>프로그램명</span><input name="programName" type="text" placeholder="예: 바이오 재직자 교육" /></label>
       <label class="form-field"><span>집행일자</span><input name="executionDate" type="date" /></label>
       <label class="form-field"><span>집행액</span><input name="executed" type="number" min="0" value="0" /></label>
@@ -83,7 +83,6 @@ function renderAllocationForm() {
 function bindBudgetForm() {
   const form = document.querySelector(`#${EXEC_FORM_ID}`);
   if (!form) return;
-
   form.querySelector(`#${UNIT_SELECT_ID}`)?.addEventListener('change', () => {
     updateBudgetItemOptions();
     updateBudgetBalance();
@@ -97,7 +96,6 @@ function bindBudgetForm() {
     const values = Object.fromEntries(new FormData(form).entries());
     if (!validateRequired(values, ['unitTaskId', 'budgetItemId', 'programName', 'executionDate']).valid) return showToast('필수 입력 항목을 확인해 주세요.');
     if (!validateNumber(values.executed, { min: 0 }).valid) return showToast('집행액을 확인해 주세요.');
-
     const item = getManagedBudgetItem(values.budgetItemId);
     const remaining = getManagedRemaining(item, getCollection('budgets'));
     if (item && Number(values.executed) > remaining) return showToast('집행액이 현재 잔액을 초과합니다.');
@@ -127,7 +125,6 @@ function bindBudgetForm() {
 function bindAllocationForm() {
   const form = document.querySelector(`#${ALLOC_FORM_ID}`);
   if (!form) return;
-
   form.querySelector('[name="unitTaskId"]')?.addEventListener('change', updateAllocationTargetOptions);
   document.querySelector('#loadBudgetAllocation')?.addEventListener('click', () => loadAllocationToForm());
   document.querySelector('#newBudgetAllocation')?.addEventListener('click', () => clearAllocationForm());
@@ -138,7 +135,6 @@ function bindAllocationForm() {
     const values = Object.fromEntries(new FormData(form).entries());
     if (!validateRequired(values, ['unitTaskId', 'riseCategory', 'erpItem']).valid) return showToast('편성항목 기본정보를 입력해 주세요.');
     if (!validateNumber(values.allocated, { min: 0 }).valid) return showToast('편성액을 확인해 주세요.');
-
     const targetId = values.targetItemId && values.targetItemId !== '__new__' ? values.targetItemId : '';
     const previous = targetId ? getManagedBudgetItem(targetId, { includeInactive: true }) : null;
     const id = targetId || `custom_budget_${Date.now()}`;
@@ -170,9 +166,8 @@ function updateBudgetItemOptions() {
   const unitTaskId = document.querySelector(`#${UNIT_SELECT_ID}`)?.value || BUDGET_UNITS[0].id;
   const select = document.querySelector(`#${ITEM_SELECT_ID}`);
   if (!select) return;
-  const executions = getCollection('budgets');
   const items = getManagedBudgetItems(unitTaskId);
-  select.innerHTML = items.map(item => `<option value="${item.id}">${item.riseCategory} / ${shorten(item.erpItem)} / 편성 ${formatWon(item.allocated)} / 집행 ${formatWon(getManagedExecuted(item, executions))} / 잔액 ${formatWon(getManagedRemaining(item, executions))}</option>`).join('');
+  select.innerHTML = items.map(item => `<option value="${item.id}">${item.riseCategory} / ${shorten(item.erpItem, 68)}</option>`).join('');
 }
 
 function updateBudgetBalance() {
@@ -180,7 +175,12 @@ function updateBudgetBalance() {
   const target = document.querySelector(`#${BALANCE_ID}`);
   if (!target) return;
   const item = getManagedBudgetItem(itemId);
-  target.value = item ? formatWon(getManagedRemaining(item, getCollection('budgets'))) : '편성 예산 없음';
+  if (!item) {
+    target.value = '편성 예산 없음';
+    return;
+  }
+  const executions = getCollection('budgets');
+  target.value = `편성 ${formatWon(item.allocated)} / 집행 ${formatWon(getManagedExecuted(item, executions))} / 잔액 ${formatWon(getManagedRemaining(item, executions))} / 집행률 ${getManagedRate(item, executions)}%`;
 }
 
 function syncAllocationUnitWithBudgetUnit() {
@@ -197,7 +197,7 @@ function updateAllocationTargetOptions() {
   const select = document.querySelector(`#${ALLOC_TARGET_ID}`);
   if (!select) return;
   const items = getManagedBudgetItems(unitTaskId, { includeInactive: true });
-  select.innerHTML = `<option value="__new__">신규 항목 추가</option>${items.map(item => `<option value="${item.id}">${item.status === 'INACTIVE' ? '[사용중지] ' : ''}${item.riseCategory} / ${shorten(item.erpItem)} / ${formatWon(item.allocated)}</option>`).join('')}`;
+  select.innerHTML = `<option value="__new__">신규 항목 추가</option>${items.map(item => `<option value="${item.id}">${item.status === 'INACTIVE' ? '[사용중지] ' : ''}${item.riseCategory} / ${shorten(item.erpItem, 68)} / ${formatWon(item.allocated)}</option>`).join('')}`;
 }
 
 function loadAllocationToForm(itemId) {
@@ -207,7 +207,6 @@ function loadAllocationToForm(itemId) {
   if (!targetId || targetId === '__new__') return clearAllocationForm();
   const item = getManagedBudgetItem(targetId, { includeInactive: true });
   if (!item) return showToast('편성항목을 찾을 수 없습니다.');
-
   form.querySelector('[name="targetItemId"]').value = item.id;
   form.querySelector('[name="unitTaskId"]').value = item.unitTaskId;
   form.querySelector('[name="riseCategory"]').value = item.riseCategory;
@@ -234,13 +233,7 @@ function disableAllocation() {
   if (!targetId || targetId === '__new__') return showToast('사용중지할 편성항목을 선택해 주세요.');
   const item = getManagedBudgetItem(targetId, { includeInactive: true });
   if (!item) return;
-
-  upsertItem('budgetAllocations', {
-    ...item,
-    baseItemId: item.source === 'base' ? item.id : item.baseItemId || '',
-    status: 'INACTIVE',
-    source: 'custom'
-  });
+  upsertItem('budgetAllocations', { ...item, baseItemId: item.source === 'base' ? item.id : item.baseItemId || '', status: 'INACTIVE', source: 'custom' });
   addAllocationHistory({ previous: item, next: { ...item, status: 'INACTIVE' }, action: '사용중지' });
   showToast('편성항목이 사용중지 처리되었습니다.');
   updateBudgetItemOptions();
@@ -253,7 +246,6 @@ function renderBudgetTables() {
   const unitTaskId = document.querySelector(`#${UNIT_SELECT_ID}`)?.value || BUDGET_UNITS[0].id;
   const executions = getCollection('budgets').filter(row => row.unitTaskId === unitTaskId);
   const items = getManagedBudgetItems(unitTaskId);
-
   renderSummary(unitTaskId, items, executions);
   renderAllocationTable(items, executions);
   renderExecutionTable(unitTaskId, executions);
@@ -268,19 +260,13 @@ function renderSummary(unitTaskId, items, executions) {
   const remaining = Math.max(allocated - executed, 0);
   const rate = allocated ? round1((executed / allocated) * 100) : 0;
   const safeRate = Math.min(rate, 100);
-
   target.innerHTML = `
-    <div class="budget-summary-visual" style="display:grid;gap:14px;">
-      <div style="display:flex;justify-content:space-between;gap:12px;align-items:flex-end;flex-wrap:wrap;">
-        <div>
-          <div style="font-size:13px;color:#6b7280;">현재 단위과제</div>
-          <div style="font-size:18px;font-weight:700;">${getUnitName(unitTaskId)}</div>
-        </div>
-        <div style="font-size:24px;font-weight:800;">집행률 ${rate}%</div>
+    <div class="budget-summary-visual">
+      <div class="budget-summary-head">
+        <div><div class="budget-summary-sub">현재 단위과제</div><div class="budget-summary-title">${getUnitName(unitTaskId)}</div></div>
+        <div class="budget-summary-rate">집행률 ${rate}%</div>
       </div>
-      <div style="height:16px;background:#e5e7eb;border-radius:999px;overflow:hidden;">
-        <div style="width:${safeRate}%;height:100%;background:linear-gradient(90deg,#2563eb,#22c55e);border-radius:999px;"></div>
-      </div>
+      <div class="budget-summary-bar"><div class="budget-summary-fill" style="width:${safeRate}%;"></div></div>
       <div class="kpi-card-grid">
         <div class="metric-card"><div class="metric-value">${formatWon(allocated)}</div><div class="metric-label">편성액</div></div>
         <div class="metric-card"><div class="metric-value">${formatWon(executed)}</div><div class="metric-label">집행액</div></div>
@@ -294,7 +280,6 @@ function renderAllocationTable(items, executions) {
   const target = document.querySelector(`#${ALLOCATION_TABLE_ID}`);
   if (!target) return;
   if (!items.length) return target.innerHTML = createEmptyState({ title: '편성 항목 없음', description: '해당 단위과제 편성내역이 없습니다.' });
-
   const rows = items.map(item => {
     const executed = getManagedExecuted(item, executions);
     const remaining = getManagedRemaining(item, executions);
@@ -310,7 +295,6 @@ function renderAllocationTable(items, executions) {
       action: `<button class="btn btn-outline" type="button" data-edit-budget-item="${item.id}">수정</button>`
     };
   });
-
   target.innerHTML = createTable({ columns: [
     { key: 'riseCategory', label: 'RISE 사업비목' },
     { key: 'erpItem', label: '산단 ERP 비목' },
@@ -322,7 +306,6 @@ function renderAllocationTable(items, executions) {
     { key: 'detail', label: '비고' },
     { key: 'action', label: '관리' }
   ], rows });
-
   target.querySelectorAll('[data-edit-budget-item]').forEach(button => {
     button.addEventListener('click', () => loadAllocationToForm(button.dataset.editBudgetItem));
   });
@@ -332,16 +315,7 @@ function renderExecutionTable(unitTaskId, executions) {
   const target = document.querySelector(`#${EXECUTION_TABLE_ID}`);
   if (!target) return;
   if (!executions.length) return target.innerHTML = createEmptyState({ title: '집행내역 없음', description: '집행내역을 등록해 주세요.' });
-
-  const rows = executions.map(row => ({
-    executionDate: row.executionDate || '-',
-    programName: row.programName || '-',
-    category: row.category || '-',
-    erpItem: row.erpItem || '-',
-    executed: formatWon(row.executed),
-    memo: row.memo || '-'
-  }));
-
+  const rows = executions.map(row => ({ executionDate: row.executionDate || '-', programName: row.programName || '-', category: row.category || '-', erpItem: row.erpItem || '-', executed: formatWon(row.executed), memo: row.memo || '-' }));
   target.innerHTML = `${createTable({ columns: [
     { key: 'executionDate', label: '집행일자' },
     { key: 'programName', label: '프로그램명' },
@@ -350,7 +324,6 @@ function renderExecutionTable(unitTaskId, executions) {
     { key: 'executed', label: '집행액' },
     { key: 'memo', label: '비고' }
   ], rows })}<div class="form-actions" style="margin-top:12px;"><button class="btn btn-outline" id="deleteLatestBudgetExecution" type="button">최근 집행내역 삭제</button></div>`;
-
   document.querySelector('#deleteLatestBudgetExecution')?.addEventListener('click', () => {
     const latest = getCollection('budgets').filter(row => row.unitTaskId === unitTaskId).at(-1);
     if (!latest) return;
@@ -370,7 +343,6 @@ function renderHistoryTable(unitTaskId) {
     .slice()
     .reverse()
     .map(row => ({ ...row, previousAllocated: formatWon(row.previousAllocated), nextAllocated: formatWon(row.nextAllocated), diff: formatWon(row.diff) }));
-
   if (!rows.length) return target.innerHTML = createEmptyState({ title: '변경 이력 없음', description: '편성항목 추가·수정·사용중지 시 이력이 자동 기록됩니다.' });
   target.innerHTML = createTable({ columns: [
     { key: 'changedAt', label: '변경일시' },
@@ -387,12 +359,10 @@ function getManagedBudgetItems(unitTaskId, options = {}) {
   const customRows = getCollection('budgetAllocations');
   const customByBase = new Map(customRows.filter(row => row.baseItemId).map(row => [row.baseItemId, row]));
   const customOnly = customRows.filter(row => !row.baseItemId && row.unitTaskId === unitTaskId);
-
   const baseItems = getBudgetItems(unitTaskId).map(item => {
     const override = customByBase.get(item.id);
     return override ? { ...item, ...override, source: 'custom' } : { ...item, source: 'base', status: 'ACTIVE' };
   });
-
   return [...baseItems, ...customOnly]
     .filter(item => item.unitTaskId === unitTaskId)
     .filter(item => options.includeInactive || item.status !== 'INACTIVE');
@@ -447,9 +417,9 @@ function getUnitName(unitTaskId) {
   return BUDGET_UNITS.find(unit => unit.id === unitTaskId)?.name || unitTaskId;
 }
 
-function shorten(value) {
+function shorten(value, max = 48) {
   const text = String(value || '');
-  return text.length > 48 ? `${text.slice(0, 48)}...` : text;
+  return text.length > max ? `${text.slice(0, max)}...` : text;
 }
 
 function formatWon(value) {
