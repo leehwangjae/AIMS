@@ -10,6 +10,8 @@ export const menus = [
   { id: 'business-1-3', label: '1-3 혁신창업', group: '사업관리' },
   { id: 'business-2-1-ai', label: '2-1 AI', group: '사업관리' },
 
+  { id: 'tasks', label: '칸반보드', group: '업무관리' },
+
   { id: 'kpi-1-1', label: '1-1 KPI', group: '성과관리' },
   { id: 'kpi-1-2', label: '1-2 KPI', group: '성과관리' },
   { id: 'kpi-1-3', label: '1-3 KPI', group: '성과관리' },
@@ -40,7 +42,7 @@ export function renderMenu(targetSelector, user, activeMenuId = 'dashboard') {
   }
 
   const accessibleMenus = getAccessibleMenus(user);
-  const groups = ['main', '사업관리', '성과관리', '운영관리', '시스템'];
+  const groups = ['main', '사업관리', '업무관리', '성과관리', '운영관리', '시스템'];
 
   target.innerHTML = groups.map(group => {
     const groupMenus = accessibleMenus.filter(menu => menu.group === group);
