@@ -7,6 +7,7 @@ import { renderIncentiveView } from './incentive-view.js';
 import { renderUserManagementView } from './user-management-view.js';
 import { renderPlanDraftView } from './plan-draft-view.js';
 import { renderBudgetView } from './budget-view.js';
+import { renderTaskView } from './task-view.js';
 
 const KPI_ROUTE_MAP = {
   'kpi-1-1': '1-1',
