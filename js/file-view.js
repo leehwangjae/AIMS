@@ -129,14 +129,18 @@ function renderDocumentSummary() {
   const missing = docs.filter(row => getDocumentStatus(row) === '미등록').length;
 
   target.innerHTML = `
-    <div class="kpi-card-grid">
-      <div class="metric-card"><div class="metric-value">${total}</div><div class="metric-label">전체문서</div></div>
-      <div class="metric-card"><div class="metric-value">${plans}</div><div class="metric-label">사업계획서</div></div>
-      <div class="metric-card"><div class="metric-value">${results}</div><div class="metric-label">결과보고서</div></div>
-      <div class="metric-card"><div class="metric-value">${evidences}</div><div class="metric-label">증빙자료</div></div>
-      <div class="metric-card"><div class="metric-value">${missing}</div><div class="metric-label">미등록 증빙</div></div>
+    <div style="display:grid;grid-template-columns:repeat(5,minmax(0,1fr));gap:12px;">
+      ${renderSummaryCard(total, '전체문서')}
+      ${renderSummaryCard(plans, '사업계획서')}
+      ${renderSummaryCard(results, '결과보고서')}
+      ${renderSummaryCard(evidences, '증빙자료')}
+      ${renderSummaryCard(missing, '미등록 증빙')}
     </div>
   `;
+}
+
+function renderSummaryCard(value, label) {
+  return `<div class="metric-card" style="background:#fff;border:1px solid #e5e7eb;border-radius:12px;padding:14px 16px;box-shadow:0 1px 4px rgba(0,0,0,.04);"><div class="metric-value" style="font-size:22px;font-weight:800;color:#185fa5;">${value}</div><div class="metric-label" style="font-size:12px;color:#6b7280;margin-top:4px;">${label}</div></div>`;
 }
 
 function renderDocumentTable() {
@@ -205,29 +209,11 @@ function getFilteredDocuments() {
 }
 
 function normalizeFileDocument(row) {
-  return {
-    ...row,
-    category: normalizeCategory(row.category),
-    status: row.status || inferStatus(row),
-    uploadedBy: row.uploadedBy || '-'
-  };
+  return { ...row, category: normalizeCategory(row.category), status: row.status || inferStatus(row), uploadedBy: row.uploadedBy || '-' };
 }
 
 function normalizeReportDocument(row) {
-  return {
-    id: `report_${row.id || row.title}`,
-    category: normalizeCategory(row.type || '성과자료'),
-    unitTaskId: row.unitTaskId || 'common',
-    programName: row.programName || '',
-    title: row.title || '보고서',
-    status: row.status || '작성중',
-    fileName: row.fileName || '보고서센터 등록자료',
-    fileSize: row.fileSize || '-',
-    uploadedAt: row.createdAt?.slice?.(0, 10) || '-',
-    uploadedBy: row.createdBy || '-',
-    memo: row.memo || '',
-    fileDataUrl: row.fileDataUrl || ''
-  };
+  return { id: `report_${row.id || row.title}`, category: normalizeCategory(row.type || '성과자료'), unitTaskId: row.unitTaskId || 'common', programName: row.programName || '', title: row.title || '보고서', status: row.status || '작성중', fileName: row.fileName || '보고서센터 등록자료', fileSize: row.fileSize || '-', uploadedAt: row.createdAt?.slice?.(0, 10) || '-', uploadedBy: row.createdBy || '-', memo: row.memo || '', fileDataUrl: row.fileDataUrl || '' };
 }
 
 function normalizeCategory(category) {
