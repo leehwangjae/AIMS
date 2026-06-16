@@ -1,0 +1,107 @@
+/* AIMS Light Mode Lock
+   This file intentionally overrides automatic OS dark mode until a dedicated dark-mode toggle is implemented. */
+
+:root {
+  color-scheme: light;
+  --bg: #f7f8fb !important;
+  --surface: #ffffff !important;
+  --surface2: #f8fafc !important;
+  --surface3: #eef2ff !important;
+  --text: #111827 !important;
+  --text2: #64748b !important;
+  --text3: #94a3b8 !important;
+  --border: #e5e7eb !important;
+  --border2: #dbe1ea !important;
+  --primary: #4f46e5 !important;
+  --primary-h: #4338ca !important;
+  --primary-l: #eef2ff !important;
+}
+
+html, body {
+  background:
+    radial-gradient(circle at 15% 0%, rgba(79, 70, 229, .08), transparent 32%),
+    radial-gradient(circle at 85% 10%, rgba(14, 165, 233, .07), transparent 30%),
+    #f7f8fb !important;
+  color: #111827 !important;
+}
+
+.topbar,
+.sidebar,
+.sc,
+.sch,
+.scb,
+.metric-card,
+.budget-kpi-card-v2,
+.budget-panel-v2,
+.budget-split-card-v2,
+.budget-total-bar-v2,
+.budget-category-card-v2,
+.kanban-card,
+.leave-dropdown,
+.tbl,
+.btn-outline,
+.form-field input,
+.form-field select,
+.form-field textarea {
+  background-color: #ffffff !important;
+  color: #111827 !important;
+  border-color: #e5e7eb !important;
+}
+
+.sch,
+.tbl th,
+.kanban-column-head {
+  background: #f8fafc !important;
+  color: #475569 !important;
+}
+
+.sidebar button {
+  color: #475569 !important;
+}
+
+.sidebar button:hover {
+  background: #f1f5f9 !important;
+  color: #111827 !important;
+}
+
+.sidebar button.on {
+  background: linear-gradient(135deg, #eef2ff, #e0f2fe) !important;
+  color: #4f46e5 !important;
+}
+
+.form-field span,
+.metric-label,
+.page-desc,
+.budget-kpi-label-v2,
+.menu-group-title,
+.kanban-meta,
+.tbl th {
+  color: #64748b !important;
+}
+
+.form-field input::placeholder,
+.form-field textarea::placeholder {
+  color: #94a3b8 !important;
+}
+
+.form-field input:focus,
+.form-field select:focus,
+.form-field textarea:focus {
+  border-color: rgba(79, 70, 229, .55) !important;
+  box-shadow: 0 0 0 4px rgba(79, 70, 229, .10) !important;
+}
+
+.kanban-column {
+  background: #f8fafc !important;
+  border-color: #e2e8f0 !important;
+}
+
+.tbl tr:hover td {
+  background: #fafcff !important;
+}
+
+.leave-dropdown summary span {
+  background: #f8fafc !important;
+  color: #475569 !important;
+  border-color: #e2e8f0 !important;
+}
