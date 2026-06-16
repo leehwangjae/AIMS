@@ -322,7 +322,7 @@ function buildAccrualRows(staff) {
 function getUsedHours(staffId) {
   return getCollection('leaveUsage')
     .filter(item => item.staffId === staffId)
-    .reduce((sum, item) => sum + Number(item.deductHours ?? item.hours ?? legacyDaysToHours(item.days) || 0), 0);
+    .reduce((sum, item) => sum + Number(item.deductHours ?? item.hours ?? legacyDaysToHours(item.days)), 0);
 }
 
 function getSpecialHours(staffId) {
