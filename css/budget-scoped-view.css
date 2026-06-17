@@ -1,0 +1,25 @@
+.budget-context-notice {
+  height: 0 !important;
+  min-height: 0 !important;
+  margin: 0 !important;
+  padding: 0 !important;
+  border: 0 !important;
+  overflow: hidden !important;
+  opacity: 0 !important;
+  pointer-events: none !important;
+}
+
+.budget-context-notice + .budget-dashboard-v2 .budget-toolbar-v2 > .budget-filter-group:first-child {
+  height: 0 !important;
+  min-height: 0 !important;
+  margin: 0 !important;
+  padding: 0 !important;
+  border: 0 !important;
+  overflow: hidden !important;
+  opacity: 0 !important;
+  pointer-events: none !important;
+}
+
+.budget-context-notice + .budget-dashboard-v2 .budget-toolbar-v2 {
+  justify-content: flex-end;
+}
