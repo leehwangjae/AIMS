@@ -1,5 +1,6 @@
 import { getCurrentUser } from './auth.js';
 import { showToast } from './ui.js';
+import { bindPlanAiEnhancer } from './plan-ai-enhancer.js';
 import { sampleUsers, sampleProjects, samplePrograms } from '../data/sample-data.js';
 
 function initializeStorage() {
@@ -30,6 +31,7 @@ function initializeSession() {
 function initializeApplication() {
   initializeStorage();
   initializeSession();
+  bindPlanAiEnhancer();
 
   console.info('AIMS 시스템 초기화 완료');
 }
