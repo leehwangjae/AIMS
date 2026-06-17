@@ -16,6 +16,8 @@ const KPI_ROUTE_MAP = {
   'kpi-2-1-ai': '2-1-ai'
 };
 
+const BUDGET_CONTEXT_KEY = 'aims_budget_unit_context';
+
 export function renderRoute(routeId, targetSelector = '#contentContainer') {
   const target = document.querySelector(targetSelector);
 
@@ -69,6 +71,7 @@ export function renderRoute(routeId, targetSelector = '#contentContainer') {
 
   if (routeId === 'budgets') {
     renderBudgetView(targetSelector);
+    applyBudgetUnitContext();
     return;
   }
 
@@ -126,11 +129,61 @@ export function bindMenuRouting(menuSelector = '#menuContainer', contentSelector
     if (!button) return;
 
     const routeId = button.dataset.menuId;
+    syncBudgetContextFromSidebar(button, routeId);
 
     menuContainer.querySelectorAll('[data-menu-id]').forEach(item => {
-      item.classList.toggle('on', item.dataset.menuId === routeId);
+      item.classList.toggle('on', item.dataset.menuId === routeId && item === button);
     });
 
     renderRoute(routeId, contentSelector);
   });
+}
+
+function syncBudgetContextFromSidebar(button, routeId) {
+  if (routeId !== 'budgets') {
+    sessionStorage.removeItem(BUDGET_CONTEXT_KEY);
+    return;
+  }
+
+  const groupTitle = button.closest('.sidebar-accordion')?.querySelector('.sidebar-group-text strong')?.textContent || '';
+  const unitId = getUnitIdFromTitle(groupTitle);
+
+  if (unitId) {
+    sessionStorage.setItem(BUDGET_CONTEXT_KEY, unitId);
+  } else {
+    sessionStorage.removeItem(BUDGET_CONTEXT_KEY);
+  }
+}
+
+function applyBudgetUnitContext() {
+  const unitId = sessionStorage.getItem(BUDGET_CONTEXT_KEY);
+  if (!unitId) return;
+
+  const select = document.querySelector('#budgetUnitSelect');
+  if (select) {
+    select.value = unitId;
+    select.dispatchEvent(new Event('change', { bubbles: true }));
+    select.disabled = true;
+    select.closest('.form-field')?.classList.add('budget-context-locked');
+  }
+
+  document.querySelectorAll('[data-budget-unit]').forEach(button => {
+    const isActiveUnit = button.dataset.budgetUnit === unitId;
+    button.style.display = isActiveUnit ? '' : 'none';
+    button.disabled = !isActiveUnit;
+  });
+
+  const unitName = document.querySelector('[data-budget-unit]')?.parentElement?.querySelector(`[data-budget-unit="${unitId}"]`)?.textContent?.replace(/\s+/g, ' ') || unitId;
+  const summary = document.querySelector('#budgetSummaryContainer');
+  if (summary && !summary.querySelector('.budget-context-notice')) {
+    summary.insertAdjacentHTML('afterbegin', `<div class="budget-context-notice">현재 화면은 <strong>${unitName}</strong> 예산만 표시합니다. 통합 예산은 좌측 통합업무의 통합 예산관리에서 확인할 수 있습니다.</div>`);
+  }
+}
+
+function getUnitIdFromTitle(title) {
+  if (title.includes('1-1')) return '1-1';
+  if (title.includes('1-2')) return '1-2';
+  if (title.includes('1-3')) return '1-3';
+  if (title.includes('2-1')) return '2-1-ai';
+  return '';
 }
