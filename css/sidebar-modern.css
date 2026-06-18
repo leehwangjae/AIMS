@@ -3,14 +3,17 @@
   padding: 0 !important;
   overflow: hidden;
   position: sticky;
-  top: 78px;
-  max-height: calc(100vh - 96px);
+  top: 88px;
+  height: calc(100vh - 108px);
+  max-height: calc(100vh - 108px);
+  min-height: 520px;
 }
 .sidebar-shell {
   height: 100%;
-  max-height: calc(100vh - 96px);
+  max-height: 100%;
   padding: 14px;
-  overflow-y: auto;
+  overflow-y: scroll;
+  overflow-x: hidden;
   overscroll-behavior: contain;
   scrollbar-width: thin;
   scrollbar-color: #cbd5e1 transparent;
@@ -194,12 +197,35 @@
 @media (max-width: 1180px) {
   .sidebar {
     position: static;
+    height: auto;
     max-height: none;
+    min-height: 0;
   }
   .sidebar-shell {
-    max-height: 70vh;
+    max-height: 72vh;
+    overflow-y: scroll;
   }
   .sidebar-accordion {
     margin-top: 6px;
+  }
+}
+
+@media (max-height: 760px) {
+  .sidebar {
+    top: 70px;
+    height: calc(100vh - 82px);
+    max-height: calc(100vh - 82px);
+    min-height: 0;
+  }
+}
+
+@media (max-height: 640px) {
+  .sidebar {
+    top: 56px;
+    height: calc(100vh - 64px);
+    max-height: calc(100vh - 64px);
+  }
+  .sidebar-shell {
+    padding-bottom: 28px;
   }
 }
