@@ -15,11 +15,20 @@ const TASK_COMMENT_TEXT_ID = 'taskCommentText';
 const TASK_COMMENT_NOTICE_ID = 'taskCommentNotice';
 
 const STATUSES = [
-  { id: 'TODO', label: '예정' },
-  { id: 'DOING', label: '진행중' },
-  { id: 'REVIEW', label: '검토중' },
-  { id: 'DONE', label: '완료' }
+  { id: 'INBOX', label: '접수', icon: '📥' },
+  { id: 'PLANNING', label: '계획수립', icon: '📝' },
+  { id: 'DOING', label: '진행중', icon: '⚙️' },
+  { id: 'REVIEW', label: '검토요청', icon: '👀' },
+  { id: 'DONE', label: '완료', icon: '✅' },
+  { id: 'HOLD', label: '보류', icon: '🚨' }
 ];
+
+const LEGACY_STATUS_MAP = {
+  TODO: 'INBOX',
+  DOING: 'DOING',
+  REVIEW: 'REVIEW',
+  DONE: 'DONE'
+};
 
 const UNIT_OPTIONS = [
   { id: 'all', name: '전체' },
@@ -33,7 +42,7 @@ const UNIT_OPTIONS = [
 const PRIORITIES = [
   { id: 'URGENT', label: '긴급' },
   { id: 'HIGH', label: '높음' },
-  { id: 'NORMAL', label: '일반' },
+  { id: 'NORMAL', label: '보통' },
   { id: 'LOW', label: '낮음' }
 ];
 
@@ -43,21 +52,24 @@ export function renderTaskView(targetSelector) {
   const target = document.querySelector(targetSelector);
   if (!target) return;
 
+  ensureTaskBoardStyles();
+
   target.innerHTML = `
     <section class="dashboard-hero sc">
       <div class="scb">
         <div class="eyebrow">Task Management</div>
         <h2 class="page-title">업무관리</h2>
-        <p class="page-desc">팀원별 업무를 칸반보드로 관리하고, 진행상황과 코멘트를 한 화면에서 확인합니다.</p>
+        <p class="page-desc">팀원별 업무를 Trello형 칸반보드로 관리하고, 담당자별 업무량·지연·검토요청 현황을 한눈에 확인합니다.</p>
       </div>
     </section>
-    ${createCard({ title: '업무 요약', content: `<div id="${TASK_SUMMARY_ID}"></div>` })}
+    ${createCard({ title: '팀 업무 현황', content: `<div id="${TASK_SUMMARY_ID}"></div>` })}
     ${createCard({ title: '업무 등록', content: renderTaskForm() })}
     ${createCard({ title: '칸반보드', content: renderFilters() + `<div id="${TASK_BOARD_ID}"></div>` })}
     ${createCard({ title: '업무 코멘트', content: renderCommentForm() })}
   `;
 
   seedTasksIfEmpty();
+  migrateLegacyTaskStatuses();
   bindTaskForm();
   bindFilters();
   bindCommentForm();
@@ -73,7 +85,7 @@ function renderTaskForm() {
       <label class="form-field"><span>단위과제</span><select name="unitTaskId">${UNIT_OPTIONS.filter(unit => unit.id !== 'all').map(unit => `<option value="${unit.id}">${unit.name}</option>`).join('')}</select></label>
       <label class="form-field"><span>담당자</span><input name="owner" type="text" placeholder="예: 이창재" /></label>
       <label class="form-field"><span>마감일</span><input name="dueDate" type="date" /></label>
-      <label class="form-field"><span>상태</span><select name="status">${STATUSES.map(status => `<option value="${status.id}">${status.label}</option>`).join('')}</select></label>
+      <label class="form-field"><span>상태</span><select name="status">${STATUSES.map(status => `<option value="${status.id}">${status.icon} ${status.label}</option>`).join('')}</select></label>
       <label class="form-field"><span>진행률(%)</span><input name="progress" type="number" min="0" max="100" value="0" /></label>
       <label class="form-field"><span>우선순위</span><select name="priority">${PRIORITIES.map(priority => `<option value="${priority.id}">${priority.label}</option>`).join('')}</select></label>
       <label class="form-field"><span>업무구분</span><input name="type" type="text" placeholder="예: 행사운영, 보고서, 예산, 협의" /></label>
@@ -109,7 +121,21 @@ function bindTaskForm() {
     const values = Object.fromEntries(new FormData(form).entries());
     if (!validateRequired(values, ['title', 'unitTaskId', 'owner', 'dueDate']).valid) return showToast('업무명, 단위과제, 담당자, 마감일을 입력해 주세요.');
     if (!validateNumber(values.progress, { min: 0, max: 100 }).valid) return showToast('진행률은 0~100 사이로 입력해 주세요.');
-    upsertItem('tasks', { id: `task_${Date.now()}`, title: values.title, unitTaskId: values.unitTaskId, owner: values.owner, dueDate: values.dueDate, status: values.status, progress: Number(values.progress), priority: values.priority, type: values.type || '일반업무', description: values.description || '', issue: values.issue || '', createdAt: new Date().toISOString().slice(0, 10), updatedAt: new Date().toISOString().slice(0, 10) });
+    upsertItem('tasks', {
+      id: `task_${Date.now()}`,
+      title: values.title,
+      unitTaskId: values.unitTaskId,
+      owner: values.owner,
+      dueDate: values.dueDate,
+      status: values.status,
+      progress: Number(values.progress),
+      priority: values.priority,
+      type: values.type || '일반업무',
+      description: values.description || '',
+      issue: values.issue || '',
+      createdAt: new Date().toISOString().slice(0, 10),
+      updatedAt: new Date().toISOString().slice(0, 10)
+    });
     showToast('업무가 등록되었습니다.');
     form.reset();
     renderTaskSummary();
@@ -120,8 +146,14 @@ function bindTaskForm() {
 }
 
 function bindFilters() {
-  document.querySelector(`#${TASK_FILTER_UNIT_ID}`)?.addEventListener('change', renderTaskBoard);
-  document.querySelector(`#${TASK_FILTER_OWNER_ID}`)?.addEventListener('change', renderTaskBoard);
+  document.querySelector(`#${TASK_FILTER_UNIT_ID}`)?.addEventListener('change', () => {
+    renderTaskSummary();
+    renderTaskBoard();
+  });
+  document.querySelector(`#${TASK_FILTER_OWNER_ID}`)?.addEventListener('change', () => {
+    renderTaskSummary();
+    renderTaskBoard();
+  });
   updateOwnerFilterOptions();
 }
 
@@ -145,35 +177,100 @@ function bindCommentForm() {
 function renderTaskSummary() {
   const target = document.querySelector(`#${TASK_SUMMARY_ID}`);
   if (!target) return;
-  const tasks = getCollection('tasks');
+
+  const tasks = getFilteredTasks(false);
   const delayed = tasks.filter(isDelayed).length;
-  target.innerHTML = `<div class="kpi-card-grid"><div class="metric-card"><div class="metric-value">${tasks.length}</div><div class="metric-label">전체 업무</div></div>${STATUSES.map(status => `<div class="metric-card"><div class="metric-value">${tasks.filter(task => task.status === status.id).length}</div><div class="metric-label">${status.label}</div></div>`).join('')}<div class="metric-card"><div class="metric-value">${delayed}</div><div class="metric-label">지연 업무</div></div></div>`;
+  const dueSoon = tasks.filter(isDueSoon).length;
+  const review = tasks.filter(task => normalizeStatus(task.status) === 'REVIEW').length;
+  const doing = tasks.filter(task => normalizeStatus(task.status) === 'DOING').length;
+  const owners = getOwnerStats(tasks);
+
+  target.innerHTML = `
+    <div class="task-summary-grid">
+      <div class="task-summary-card"><div class="task-summary-value">${tasks.length}</div><div class="task-summary-label">전체 업무</div></div>
+      <div class="task-summary-card"><div class="task-summary-value">${doing}</div><div class="task-summary-label">진행중</div></div>
+      <div class="task-summary-card"><div class="task-summary-value">${review}</div><div class="task-summary-label">검토요청</div></div>
+      <div class="task-summary-card danger"><div class="task-summary-value">${delayed}</div><div class="task-summary-label">지연 업무</div></div>
+      <div class="task-summary-card warn"><div class="task-summary-value">${dueSoon}</div><div class="task-summary-label">7일 이내 마감</div></div>
+    </div>
+    <div class="task-workload-section">
+      <div class="task-workload-head"><strong>담당자별 업무량</strong><span>카드를 클릭하면 해당 담당자 업무만 필터링됩니다.</span></div>
+      <div class="task-workload-grid">
+        ${owners.length ? owners.map(renderOwnerWorkloadCard).join('') : '<div class="task-empty-inline">담당자별 업무가 없습니다.</div>'}
+      </div>
+    </div>`;
+
+  target.querySelectorAll('[data-owner-filter]').forEach(button => {
+    button.addEventListener('click', () => {
+      const select = document.querySelector(`#${TASK_FILTER_OWNER_ID}`);
+      if (!select) return;
+      select.value = button.dataset.ownerFilter;
+      renderTaskSummary();
+      renderTaskBoard();
+    });
+  });
+}
+
+function renderOwnerWorkloadCard(stat) {
+  const workloadRate = Math.min(100, Math.round((stat.active / Math.max(stat.maxActive, 1)) * 100));
+  return `<button class="task-owner-card" type="button" data-owner-filter="${escapeAttr(stat.owner)}">
+    <div class="task-owner-top"><strong>${stat.owner}</strong><span>${stat.total}건</span></div>
+    <div class="task-owner-meta">진행 ${stat.doing} · 검토 ${stat.review} · 지연 ${stat.delayed}</div>
+    <div class="task-owner-bar"><i style="width:${workloadRate}%"></i></div>
+  </button>`;
 }
 
 function renderTaskBoard() {
   const target = document.querySelector(`#${TASK_BOARD_ID}`);
   if (!target) return;
-  const tasks = getFilteredTasks();
+  const tasks = getFilteredTasks(true);
   if (!tasks.length) return target.innerHTML = createEmptyState({ title: '등록된 업무 없음', description: '업무를 등록하면 칸반보드에 표시됩니다.' });
-  target.innerHTML = `<div class="kanban-board">${STATUSES.map(status => renderKanbanColumn(status, tasks.filter(task => task.status === status.id))).join('')}</div>`;
+  target.innerHTML = `<div class="kanban-board task-kanban-v2">${STATUSES.map(status => renderKanbanColumn(status, tasks.filter(task => normalizeStatus(task.status) === status.id))).join('')}</div>`;
   target.querySelectorAll('[data-task-status]').forEach(button => button.addEventListener('click', () => changeTaskStatus(button.dataset.taskStatus, button.dataset.nextStatus)));
   target.querySelectorAll('[data-delete-task]').forEach(button => button.addEventListener('click', () => deleteTask(button.dataset.deleteTask)));
 }
 
 function renderKanbanColumn(status, tasks) {
-  return `<div class="kanban-column"><div class="kanban-column-head"><strong>${status.label}</strong><span>${tasks.length}</span></div><div class="kanban-card-list">${tasks.length ? tasks.map(renderTaskCard).join('') : '<div class="kanban-empty">해당 업무 없음</div>'}</div></div>`;
+  return `<div class="kanban-column task-column-${status.id.toLowerCase()}"><div class="kanban-column-head"><strong>${status.icon} ${status.label}</strong><span>${tasks.length}</span></div><div class="kanban-card-list">${tasks.length ? tasks.map(renderTaskCard).join('') : '<div class="kanban-empty">해당 업무 없음</div>'}</div></div>`;
 }
 
 function renderTaskCard(task) {
   const comments = getCollection('taskComments').filter(comment => comment.taskId === task.id);
   const commentScope = canCommentTask(task) ? '코멘트 가능' : '코멘트 조회만 가능';
-  return `<article class="kanban-card priority-${task.priority}"><div class="kanban-card-top"><span class="priority-badge">${getPriorityLabel(task.priority)}</span><span class="due-badge ${isDelayed(task) ? 'delayed' : ''}">${getDueText(task)}</span></div><h4>${task.title}</h4><div class="kanban-meta">${getUnitName(task.unitTaskId)} · ${task.type || '일반업무'}</div><div class="kanban-meta">담당자: <strong>${task.owner}</strong> · ${commentScope}</div><div class="progress" style="margin:8px 0;"><div class="progress-bar" style="width:${Math.min(Number(task.progress || 0), 100)}%"></div></div><div class="kanban-meta">진행률 ${task.progress || 0}%</div>${task.description ? `<p class="kanban-desc">${task.description}</p>` : ''}${task.issue ? `<p class="kanban-issue">요청/애로: ${task.issue}</p>` : ''}${comments.length ? `<div class="kanban-comments">${comments.slice(-2).map(comment => `<div><strong>${comment.author}</strong> <span class="kanban-meta">${comment.authorRole || ''}</span> ${comment.comment}</div>`).join('')}</div>` : ''}<div class="kanban-actions">${STATUSES.filter(status => status.id !== task.status).map(status => `<button class="btn btn-outline" type="button" data-task-status="${task.id}" data-next-status="${status.id}">${status.label}</button>`).join('')}<button class="btn btn-outline" type="button" data-delete-task="${task.id}">삭제</button></div></article>`;
+  const health = getDueHealth(task);
+  const nextActions = getNextStatusActions(task);
+  const status = normalizeStatus(task.status);
+  return `<article class="kanban-card priority-${task.priority} task-health-${health.id}">
+    <div class="kanban-card-top"><span class="priority-badge">${getPriorityLabel(task.priority)}</span><span class="due-badge ${health.id}">${health.label}</span></div>
+    <h4>${task.title}</h4>
+    <div class="task-card-meta-grid"><span>담당</span><strong>${task.owner}</strong><span>단위</span><strong>${getUnitName(task.unitTaskId)}</strong><span>구분</span><strong>${task.type || '일반업무'}</strong><span>권한</span><strong>${commentScope}</strong></div>
+    <div class="progress task-progress"><div class="progress-bar" style="width:${Math.min(Number(task.progress || 0), 100)}%"></div></div>
+    <div class="kanban-meta task-progress-text">진행률 ${task.progress || 0}% · 현재 ${getStatusLabel(status)}</div>
+    ${task.description ? `<p class="kanban-desc">${task.description}</p>` : ''}
+    ${task.issue ? `<p class="kanban-issue">요청/애로: ${task.issue}</p>` : ''}
+    ${comments.length ? `<div class="kanban-comments">${comments.slice(-2).map(comment => `<div><strong>${comment.author}</strong> <span class="kanban-meta">${comment.authorRole || ''}</span> ${comment.comment}</div>`).join('')}</div>` : ''}
+    <div class="kanban-actions">${nextActions.map(action => `<button class="btn btn-outline" type="button" data-task-status="${task.id}" data-next-status="${action.id}">${action.label}</button>`).join('')}<button class="btn btn-outline" type="button" data-delete-task="${task.id}">삭제</button></div>
+  </article>`;
+}
+
+function getNextStatusActions(task) {
+  const current = normalizeStatus(task.status);
+  const flow = {
+    INBOX: ['PLANNING', 'DOING', 'HOLD'],
+    PLANNING: ['DOING', 'REVIEW', 'HOLD'],
+    DOING: ['REVIEW', 'DONE', 'HOLD'],
+    REVIEW: ['DONE', 'DOING', 'HOLD'],
+    DONE: ['DOING'],
+    HOLD: ['INBOX', 'DOING']
+  };
+  return (flow[current] || []).map(statusId => ({ id: statusId, label: getStatusLabel(statusId) }));
 }
 
 function changeTaskStatus(taskId, nextStatus) {
   const task = getCollection('tasks').find(item => item.id === taskId);
   if (!task) return;
-  upsertItem('tasks', { ...task, status: nextStatus, updatedAt: new Date().toISOString().slice(0, 10), progress: nextStatus === 'DONE' ? 100 : task.progress });
+  const progress = nextStatus === 'DONE' ? 100 : nextStatus === 'INBOX' ? Math.min(Number(task.progress || 0), 10) : task.progress;
+  upsertItem('tasks', { ...task, status: nextStatus, updatedAt: new Date().toISOString().slice(0, 10), progress });
   showToast('업무 상태가 변경되었습니다.');
   renderTaskSummary();
   renderTaskBoard();
@@ -212,15 +309,55 @@ function updateCommentTargetOptions() {
   if (textarea) textarea.disabled = !tasks.length;
 }
 
-function getFilteredTasks() {
+function getFilteredTasks(applySort = true) {
   const unitId = document.querySelector(`#${TASK_FILTER_UNIT_ID}`)?.value || 'all';
   const owner = document.querySelector(`#${TASK_FILTER_OWNER_ID}`)?.value || 'all';
-  return getCollection('tasks').filter(task => unitId === 'all' || task.unitTaskId === unitId).filter(task => owner === 'all' || task.owner === owner);
+  const tasks = getCollection('tasks')
+    .map(task => ({ ...task, status: normalizeStatus(task.status) }))
+    .filter(task => unitId === 'all' || task.unitTaskId === unitId)
+    .filter(task => owner === 'all' || task.owner === owner);
+  return applySort ? tasks.sort(compareTasks) : tasks;
+}
+
+function compareTasks(a, b) {
+  const priorityOrder = { URGENT: 0, HIGH: 1, NORMAL: 2, LOW: 3 };
+  const healthOrder = { overdue: 0, today: 1, soon: 2, normal: 3, done: 4 };
+  return (healthOrder[getDueHealth(a).id] ?? 9) - (healthOrder[getDueHealth(b).id] ?? 9)
+    || (priorityOrder[a.priority] ?? 9) - (priorityOrder[b.priority] ?? 9)
+    || String(a.dueDate || '').localeCompare(String(b.dueDate || ''));
 }
 
 function seedTasksIfEmpty() {
   if (getCollection('tasks').length) return;
-  [{ title: '바이오 재직자 교육 운영 준비', unitTaskId: '1-1', owner: '이창재', dueDate: '2026-06-30', status: 'DOING', progress: 65, priority: 'HIGH', type: '교육운영', description: '강사 섭외 및 교육장 확정 진행', issue: '참여기업 확정 필요' }, { title: '스마트모빌리티 실습 프로그램 기획', unitTaskId: '1-2', owner: '담당자', dueDate: '2026-07-05', status: 'TODO', progress: 10, priority: 'NORMAL', type: '프로그램기획', description: '실습장비 및 기업 연계 프로그램 구성', issue: '' }, { title: '문서관리 증빙체계 점검', unitTaskId: 'common', owner: '팀장', dueDate: '2026-06-28', status: 'REVIEW', progress: 90, priority: 'NORMAL', type: '시스템관리', description: '사업계획서·결과보고서·증빙자료 통합 확인', issue: '다운로드 권한 검토' }].forEach((task, index) => upsertItem('tasks', { id: `seed_task_${index}`, createdAt: '2026-06-15', updatedAt: '2026-06-15', ...task }));
+  [
+    { title: '바이오 재직자 교육 운영 준비', unitTaskId: '1-1', owner: '이창재', dueDate: '2026-06-30', status: 'DOING', progress: 65, priority: 'HIGH', type: '교육운영', description: '강사 섭외 및 교육장 확정 진행', issue: '참여기업 확정 필요' },
+    { title: '스마트모빌리티 실습 프로그램 기획', unitTaskId: '1-2', owner: '담당자', dueDate: '2026-07-05', status: 'PLANNING', progress: 10, priority: 'NORMAL', type: '프로그램기획', description: '실습장비 및 기업 연계 프로그램 구성', issue: '' },
+    { title: '문서관리 증빙체계 점검', unitTaskId: 'common', owner: '팀장', dueDate: '2026-06-28', status: 'REVIEW', progress: 90, priority: 'NORMAL', type: '시스템관리', description: '사업계획서·결과보고서·증빙자료 통합 확인', issue: '다운로드 권한 검토' }
+  ].forEach((task, index) => upsertItem('tasks', { id: `seed_task_${index}`, createdAt: '2026-06-15', updatedAt: '2026-06-15', ...task }));
+}
+
+function migrateLegacyTaskStatuses() {
+  getCollection('tasks').forEach(task => {
+    const nextStatus = normalizeStatus(task.status);
+    if (nextStatus !== task.status) upsertItem('tasks', { ...task, status: nextStatus, updatedAt: new Date().toISOString().slice(0, 10) });
+  });
+}
+
+function getOwnerStats(tasks) {
+  const owners = [...new Set(tasks.map(task => task.owner).filter(Boolean))];
+  const stats = owners.map(owner => {
+    const ownerTasks = tasks.filter(task => task.owner === owner);
+    return {
+      owner,
+      total: ownerTasks.length,
+      active: ownerTasks.filter(task => !['DONE', 'HOLD'].includes(normalizeStatus(task.status))).length,
+      doing: ownerTasks.filter(task => normalizeStatus(task.status) === 'DOING').length,
+      review: ownerTasks.filter(task => normalizeStatus(task.status) === 'REVIEW').length,
+      delayed: ownerTasks.filter(isDelayed).length
+    };
+  }).sort((a, b) => b.active - a.active || b.total - a.total);
+  const maxActive = Math.max(...stats.map(stat => stat.active), 1);
+  return stats.map(stat => ({ ...stat, maxActive }));
 }
 
 function canCommentTask(task) {
@@ -245,8 +382,42 @@ function getCommentPermissionText(user) {
   return '실무자/조회자는 코멘트 조회만 가능';
 }
 
+function normalizeStatus(status) { return LEGACY_STATUS_MAP[status] || (STATUSES.some(item => item.id === status) ? status : 'INBOX'); }
+function getStatusLabel(status) { return STATUSES.find(item => item.id === status)?.label || status || '접수'; }
 function getUnitName(unitTaskId) { return UNIT_OPTIONS.find(unit => unit.id === unitTaskId)?.name || unitTaskId; }
-function getPriorityLabel(priority) { return PRIORITIES.find(item => item.id === priority)?.label || priority || '일반'; }
-function isDelayed(task) { if (!task.dueDate || task.status === 'DONE') return false; return task.dueDate < new Date().toISOString().slice(0, 10); }
-function getDueText(task) { if (!task.dueDate) return '마감 미정'; if (task.status === 'DONE') return '완료'; const today = new Date(new Date().toISOString().slice(0, 10)); const due = new Date(task.dueDate); const diff = Math.ceil((due - today) / (1000 * 60 * 60 * 24)); if (diff < 0) return `기한초과 ${Math.abs(diff)}일`; if (diff === 0) return 'D-Day'; return `D-${diff}`; }
+function getPriorityLabel(priority) { return PRIORITIES.find(item => item.id === priority)?.label || priority || '보통'; }
+function isDelayed(task) { return getDueHealth(task).id === 'overdue'; }
+function isDueSoon(task) { return ['today', 'soon'].includes(getDueHealth(task).id); }
+function getDueText(task) { return getDueHealth(task).label; }
+function getDueHealth(task) {
+  if (!task.dueDate) return { id: 'normal', label: '마감 미정' };
+  if (normalizeStatus(task.status) === 'DONE') return { id: 'done', label: '완료' };
+  const today = new Date(new Date().toISOString().slice(0, 10));
+  const due = new Date(task.dueDate);
+  const diff = Math.ceil((due - today) / (1000 * 60 * 60 * 24));
+  if (diff < 0) return { id: 'overdue', label: `🔴 D+${Math.abs(diff)}` };
+  if (diff === 0) return { id: 'today', label: '🔴 D-Day' };
+  if (diff <= 7) return { id: 'soon', label: `🟡 D-${diff}` };
+  return { id: 'normal', label: `🟢 D-${diff}` };
+}
 function getCurrentUserName() { return getCurrentUser()?.name || document.querySelector('#userNameTop')?.textContent || '사용자'; }
+function escapeAttr(value) { return String(value || '').replaceAll('&', '&amp;').replaceAll('"', '&quot;').replaceAll('<', '&lt;').replaceAll('>', '&gt;'); }
+
+function ensureTaskBoardStyles() {
+  if (document.querySelector('#taskBoardV2Styles')) return;
+  const style = document.createElement('style');
+  style.id = 'taskBoardV2Styles';
+  style.textContent = `
+    .task-summary-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(135px,1fr));gap:12px;margin-bottom:16px}
+    .task-summary-card{border:1px solid #e2e8f0;border-radius:16px;background:#fff;padding:14px 16px;box-shadow:0 1px 3px rgba(15,23,42,.05)}
+    .task-summary-card.danger{background:#fff7f7;border-color:#fecaca}.task-summary-card.warn{background:#fffbeb;border-color:#fde68a}
+    .task-summary-value{font-size:26px;font-weight:950;letter-spacing:-.04em;color:#1d4ed8;line-height:1}.task-summary-card.danger .task-summary-value{color:#dc2626}.task-summary-card.warn .task-summary-value{color:#b45309}
+    .task-summary-label{font-size:12px;color:#64748b;font-weight:800;margin-top:7px}
+    .task-workload-section{border:1px solid #e2e8f0;border-radius:16px;background:#f8fafc;padding:14px}.task-workload-head{display:flex;justify-content:space-between;gap:12px;align-items:flex-end;margin-bottom:12px}.task-workload-head strong{font-size:14px}.task-workload-head span{font-size:12px;color:#64748b}
+    .task-workload-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(180px,1fr));gap:10px}.task-owner-card{border:1px solid #e2e8f0;background:#fff;border-radius:14px;padding:12px;text-align:left;cursor:pointer}.task-owner-card:hover{border-color:#93c5fd;box-shadow:0 6px 18px rgba(37,99,235,.10)}
+    .task-owner-top{display:flex;justify-content:space-between;gap:8px;align-items:center}.task-owner-top strong{font-size:14px}.task-owner-top span{font-size:12px;font-weight:900;color:#1d4ed8;background:#eff6ff;border-radius:999px;padding:3px 8px}.task-owner-meta{font-size:12px;color:#64748b;margin-top:7px}.task-owner-bar{height:7px;border-radius:99px;background:#e2e8f0;overflow:hidden;margin-top:9px}.task-owner-bar i{display:block;height:100%;background:linear-gradient(90deg,#4f46e5,#0ea5e9);border-radius:99px}
+    .task-empty-inline{grid-column:1/-1;color:#94a3b8;text-align:center;padding:12px}.task-kanban-v2{display:grid;grid-template-columns:repeat(6,minmax(235px,1fr));gap:12px;overflow-x:auto;padding-bottom:8px;align-items:start}.task-kanban-v2 .kanban-column{min-width:235px}.task-kanban-v2 .kanban-column-head strong{font-size:13px}.task-card-meta-grid{display:grid;grid-template-columns:42px 1fr;gap:3px 8px;margin-top:8px;font-size:12px;color:#64748b}.task-card-meta-grid strong{color:#1e293b;font-weight:800;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}.task-progress{height:8px;margin:10px 0 6px}.task-progress-text{display:flex;justify-content:space-between}.due-badge.overdue,.due-badge.today{background:#fee2e2;color:#b91c1c}.due-badge.soon{background:#fef3c7;color:#92400e}.due-badge.normal{background:#dcfce7;color:#166534}.due-badge.done{background:#e0e7ff;color:#3730a3}.task-health-overdue{box-shadow:inset 0 0 0 1px rgba(220,38,38,.12)}
+    @media(max-width:1280px){.task-kanban-v2{grid-template-columns:repeat(6,260px)}}
+  `;
+  document.head.appendChild(style);
+}
