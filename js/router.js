@@ -8,6 +8,7 @@ import { renderUserManagementView } from './user-management-view.js';
 import { renderPlanDraftView } from './plan-draft-view.js';
 import { renderBudgetView } from './budget-view.js';
 import { renderTaskView } from './task-view.js';
+import { renderCardnewsView } from './cardnews-view.js';
 
 const KPI_ROUTE_MAP = {
   'kpi-1-1': '1-1',
@@ -64,6 +65,11 @@ export function renderRoute(routeId, targetSelector = '#contentContainer') {
     return;
   }
 
+  if (routeId === 'cardnews') {
+    renderCardnewsView(targetSelector);
+    return;
+  }
+
   if (routeId.startsWith('business-')) {
     renderProgramView(targetSelector, routeId);
     return;
@@ -81,12 +87,13 @@ export function renderRoute(routeId, targetSelector = '#contentContainer') {
         <div class="scb">
           <div class="eyebrow">AI Work Center</div>
           <h2 class="page-title">AI 업무센터</h2>
-          <p class="page-desc">사업계획 기안, 회의자료, 심사 Q&A 생성을 위한 업무 자동화 영역입니다.</p>
+          <p class="page-desc">사업계획 기안, 카드뉴스, 회의자료, 심사 Q&A 생성을 위한 업무 자동화 영역입니다.</p>
         </div>
       </section>
       <section class="sc">
         <div class="scb ai-action-grid">
           <button class="btn btn-outline" data-ai-route="plan-draft">사업계획 기안 생성</button>
+          <button class="btn btn-outline" data-ai-route="cardnews">AI 카드뉴스 생성</button>
           <button class="btn btn-outline">회의자료 생성</button>
           <button class="btn btn-outline">심사 Q&A 생성</button>
         </div>
@@ -95,6 +102,9 @@ export function renderRoute(routeId, targetSelector = '#contentContainer') {
 
     target.querySelector('[data-ai-route="plan-draft"]')?.addEventListener('click', () => {
       renderPlanDraftView(targetSelector);
+    });
+    target.querySelector('[data-ai-route="cardnews"]')?.addEventListener('click', () => {
+      renderCardnewsView(targetSelector);
     });
     return;
   }
