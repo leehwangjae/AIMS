@@ -1,0 +1,75 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>AIMS Card News Maker</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script src="https://cdn.jsdelivr.net/npm/html2canvas@1.4.1/dist/html2canvas.min.js"></script>
+  <style>
+    body{margin:0;background:#f8fafc;font-family:Pretendard,'Noto Sans KR','Apple SD Gothic Neo',system-ui,sans-serif}.card-stage{width:min(440px,92vw);aspect-ratio:4/5}.slide-card{width:100%;height:100%;position:relative;overflow:hidden}.dark-premium{background:linear-gradient(135deg,#121212,#1f2937);color:#fff}.blue-saas{background:linear-gradient(135deg,#0b1f4d,#1d4ed8);color:#fff}.white-minimal{background:linear-gradient(135deg,#f8fafc,#fff);color:#0f172a}.green-rise{background:linear-gradient(135deg,#064e3b,#047857);color:#fff}.gold-impact{background:linear-gradient(135deg,#1c1917,#44403c);color:#fff7ed}.accent-dark-premium{color:#ffd700}.accent-blue-saas{color:#67e8f9}.accent-white-minimal{color:#1d4ed8}.accent-green-rise{color:#a7f3d0}.accent-gold-impact{color:#fbbf24}.safe-text{text-shadow:0 2px 18px rgba(0,0,0,.35)}
+  </style>
+</head>
+<body>
+  <main class="p-5">
+    <section class="grid grid-cols-1 lg:grid-cols-[1fr_360px] gap-5 max-w-6xl mx-auto">
+      <div class="bg-white rounded-2xl border border-slate-200 shadow-sm p-5 flex justify-center">
+        <div id="capture" class="card-stage rounded-[28px] shadow-2xl">
+          <article id="slideCard" class="slide-card dark-premium rounded-[28px] p-9">
+            <div class="relative z-10 h-full flex flex-col">
+              <div class="flex justify-between items-start text-sm font-black opacity-90"><span id="slideNo">01/01</span><span>AIMS CARD NEWS</span></div>
+              <div class="mt-7 text-sm font-black tracking-widest" id="tag">RISE</div>
+              <h1 id="title" class="safe-text mt-8 text-[42px] leading-tight font-black break-keep">카드뉴스 제작기</h1>
+              <p id="body" class="mt-7 text-[19px] leading-relaxed font-semibold opacity-90 break-keep">AIMS에서 생성한 카드뉴스 데이터가 이 영역에 자동으로 연동됩니다.</p>
+              <div class="mt-auto rounded-3xl bg-white/15 p-5 border border-white/20">
+                <div id="highlight" class="text-[25px] leading-snug font-black break-keep">AI 기반 성과확산</div>
+              </div>
+              <div class="pt-5 text-xs font-bold opacity-80">인천대학교 RISE사업단</div>
+            </div>
+            <div id="visualLayer" class="absolute inset-x-0 top-[120px] h-[270px] opacity-20 bg-white/10"></div>
+          </article>
+        </div>
+      </div>
+      <aside class="bg-white rounded-2xl border border-slate-200 shadow-sm p-5">
+        <h2 class="text-xl font-black text-slate-900">카드뉴스 제작기</h2>
+        <p class="text-sm text-slate-500 mt-1">AIMS에서 보낸 데이터를 수정하고 PNG로 저장합니다.</p>
+        <div class="mt-5 grid grid-cols-2 gap-2">
+          <button id="prevBtn" class="px-4 py-2 rounded-xl bg-slate-100 font-bold">이전</button>
+          <button id="nextBtn" class="px-4 py-2 rounded-xl bg-blue-600 text-white font-bold">다음</button>
+        </div>
+        <button id="downloadBtn" class="mt-3 w-full px-4 py-3 rounded-xl bg-amber-400 text-slate-950 font-black">현재 카드 PNG 다운로드</button>
+        <button id="downloadAllBtn" class="mt-2 w-full px-4 py-3 rounded-xl bg-slate-900 text-white font-black">전체 카드 PNG 다운로드</button>
+        <div class="mt-5 space-y-3">
+          <label class="block text-xs font-black text-slate-500">배경톤</label>
+          <select id="themeSelect" class="w-full border rounded-xl px-3 py-2"><option value="dark-premium">다크 프리미엄</option><option value="blue-saas">블루 SaaS</option><option value="white-minimal">화이트 미니멀</option><option value="green-rise">그린 RISE</option><option value="gold-impact">골드 임팩트</option></select>
+          <label class="block text-xs font-black text-slate-500">제목</label><textarea id="titleInput" class="w-full border rounded-xl px-3 py-2" rows="3"></textarea>
+          <label class="block text-xs font-black text-slate-500">본문</label><textarea id="bodyInput" class="w-full border rounded-xl px-3 py-2" rows="5"></textarea>
+          <label class="block text-xs font-black text-slate-500">강조문구</label><textarea id="highlightInput" class="w-full border rounded-xl px-3 py-2" rows="2"></textarea>
+          <button id="applyBtn" class="w-full px-4 py-2 rounded-xl bg-blue-50 text-blue-700 font-black">수정사항 적용</button>
+        </div>
+      </aside>
+    </section>
+  </main>
+  <script>
+    let slidesData=[{tag:'RISE',title:'카드뉴스 제작기',body:'AIMS에서 생성한 카드뉴스 데이터가 이 영역에 자동으로 연동됩니다.',highlight:'AI 기반 성과확산',theme:'dark-premium'}];
+    let currentIndex=0;
+    const $=id=>document.getElementById(id);
+    function current(){return slidesData[currentIndex]||slidesData[0];}
+    function renderSlide(){
+      const s=current(); const theme=s.theme||$('themeSelect').value||'dark-premium';
+      const card=$('slideCard'); card.className=`slide-card ${theme} rounded-[28px] p-9`;
+      $('slideNo').textContent=String(currentIndex+1).padStart(2,'0')+'/'+String(slidesData.length).padStart(2,'0');
+      $('tag').textContent=s.tag||s.title||'RISE'; $('tag').className=`mt-7 text-sm font-black tracking-widest accent-${theme}`;
+      $('title').textContent=s.title||s.headline||''; $('body').textContent=s.body||''; $('highlight').textContent=s.highlight||''; $('highlight').className=`text-[25px] leading-snug font-black break-keep accent-${theme}`;
+      $('themeSelect').value=theme; $('titleInput').value=s.title||s.headline||''; $('bodyInput').value=s.body||''; $('highlightInput').value=s.highlight||'';
+      if(s.imageData){$('visualLayer').style.backgroundImage=`url(${s.imageData})`; $('visualLayer').style.backgroundSize='cover'; $('visualLayer').style.backgroundPosition='center'; $('visualLayer').style.opacity='.28';}else{$('visualLayer').style.backgroundImage=''; $('visualLayer').style.opacity='.13';}
+    }
+    function applyEdit(){const s=current(); s.theme=$('themeSelect').value; s.title=$('titleInput').value; s.body=$('bodyInput').value; s.highlight=$('highlightInput').value; renderSlide();}
+    async function downloadOne(index=currentIndex){currentIndex=index; renderSlide(); await document.fonts.ready; const canvas=await html2canvas($('capture'),{scale:2,useCORS:true,backgroundColor:null}); const a=document.createElement('a'); a.download=`AIMS_cardnews_${String(index+1).padStart(2,'0')}.png`; a.href=canvas.toDataURL('image/png'); a.click();}
+    async function downloadAll(){for(let i=0;i<slidesData.length;i++){await downloadOne(i); await new Promise(r=>setTimeout(r,350));}}
+    window.addEventListener('message',event=>{if(event.data&&event.data.type==='LOAD_NEWS_DATA'){slidesData=(event.data.slides||[]).map((s,i)=>({tag:s.tag||s.title||`CARD ${i+1}`,title:s.title||s.headline||'',body:s.body||'',highlight:s.highlight||'',theme:s.theme||event.data.tone||'dark-premium',imageData:s.imageData||''})); currentIndex=0; renderSlide();}});
+    $('prevBtn').onclick=()=>{currentIndex=Math.max(0,currentIndex-1);renderSlide();}; $('nextBtn').onclick=()=>{currentIndex=Math.min(slidesData.length-1,currentIndex+1);renderSlide();}; $('applyBtn').onclick=applyEdit; $('downloadBtn').onclick=()=>downloadOne(); $('downloadAllBtn').onclick=downloadAll; $('themeSelect').onchange=applyEdit;
+    renderSlide();
+  </script>
+</body>
+</html>
