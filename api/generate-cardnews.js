@@ -21,21 +21,22 @@ export default async function handler(req, res) {
 
     if (!pressText) return res.status(400).json({ ok: false, message: 'pressText is required.' });
 
+    const responseBody = {
+      model: process.env.OPENAI_MODEL || 'gpt-4.1-mini',
+      input: [
+        { role: 'system', content: [{ type: 'input_text', text: CARDNEWS_SYSTEM_PROMPT }] },
+        { role: 'user', content: [{ type: 'input_text', text: buildUserPrompt({ pressText, cardCount, tone, purpose, targetAudience }) }] }
+      ],
+      max_output_tokens: 7500
+    };
+
     const response = await fetch('https://api.openai.com/v1/responses', {
       method: 'POST',
       headers: {
         Authorization: `Bearer ${apiKey}`,
         'Content-Type': 'application/json'
       },
-      body: JSON.stringify({
-        model: process.env.OPENAI_MODEL || 'gpt-4.1-mini',
-        input: [
-          { role: 'system', content: [{ type: 'input_text', text: CARDNEWS_SYSTEM_PROMPT }] },
-          { role: 'user', content: [{ type: 'input_text', text: buildUserPrompt({ pressText, cardCount, tone, purpose, targetAudience }) }] }
-        ],
-        temperature: 0.28,
-        max_output_tokens: 7500
-      })
+      body: JSON.stringify(responseBody)
     });
 
     if (!response.ok) {
