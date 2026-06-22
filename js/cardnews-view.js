@@ -17,6 +17,7 @@ let currentImageMode = 'ai-image';
 let currentCards = [];
 let sourceFileName = '';
 let sourceFileText = '';
+let directInputMode = false;
 
 const TONES = [
   { id: 'inu-brand', label: '인천대 브랜드', desc: 'INU Navy + Blue' },
@@ -82,15 +83,21 @@ function renderStep() {
 }
 
 function stepOneHtml() {
+  const textPanelOpen = directInputMode || Boolean(sourceFileText);
+  const fileStatus = sourceFileName
+    ? `✓ ${sourceFileName} 업로드 완료${sourceFileText ? ' · 본문 반영 완료' : ' · 파일 기반 생성 준비 완료'}`
+    : '파일을 업로드하면 직접 입력 없이 카드뉴스 생성을 진행할 수 있습니다.';
+
   return `<form id="${FORM_ID}" class="form-grid">
-    <label class="form-field full"><span>보도자료 업로드 · HWP / PDF / DOCX / TXT</span><input name="pressFile" type="file" accept=".hwp,.hwpx,.pdf,.doc,.docx,.txt" /><small id="fileStatus">파일 미선택 · PDF/HWP/DOCX는 현재 파일명 기반으로 저장되며, 본문은 아래 텍스트 입력을 함께 사용합니다.</small></label>
+    <label class="form-field full"><span>보도자료 업로드 · HWP / PDF / DOCX / TXT</span><input name="pressFile" type="file" accept=".hwp,.hwpx,.pdf,.doc,.docx,.txt" /><small id="fileStatus" class="cn-file-status ${sourceFileName ? 'ok' : ''}">${fileStatus}</small></label>
     <label class="form-field"><span>카드 장수 선택</span><select name="cardCount"><option value="5">5장</option><option value="7" selected>7장</option><option value="10">10장</option><option value="custom">직접 입력</option></select></label>
     <label class="form-field"><span>직접 입력</span><input name="customCardCount" type="number" min="3" max="15" placeholder="예: 8" /></label>
     <label class="form-field"><span>생성 목적</span><select name="purpose"><option value="홍보">홍보</option><option value="안내">안내</option><option value="성과공유" selected>성과공유</option><option value="행사소개">행사소개</option></select></label>
     <label class="form-field"><span>타겟</span><input name="targetAudience" type="text" value="재학생, 교직원, 지역기업, 지자체 관계자" /></label>
-    <label class="form-field full"><span>보도자료 본문</span><textarea name="pressText" rows="12" placeholder="보도자료 전문 또는 핵심 내용을 붙여넣으세요.">${sourceFileText || ''}</textarea></label>
-    <div class="form-actions"><button class="btn btn-primary" type="submit">AI 요약 생성</button><button class="btn btn-outline" type="button" id="addCardBtn">카드 추가</button><button class="btn btn-outline" type="button" id="regenSummaryBtn">다시 생성</button><button class="btn btn-primary" type="button" id="approveStepOne">다음: 디자인 설정</button></div>
-    <div class="cn-summary-panel full"><div><b>AI 생성 결과</b><p>카드 장수에 맞춰 메인 화면 문구, 타이틀, 본문 요약, 카드별 핵심 메시지, 최종 메시지/CTA를 생성합니다.</p></div><div id="summaryList" class="cn-summary-list">${summaryListHtml()}</div></div>
+    <label class="form-field full cn-check"><input id="directInputToggle" type="checkbox" ${textPanelOpen ? 'checked' : ''} /> 보도자료 본문을 직접 입력·수정하기</label>
+    <label class="form-field full cn-direct-input ${textPanelOpen ? 'show' : ''}"><span>보도자료 본문</span><textarea name="pressText" rows="10" placeholder="파일에서 추출된 본문을 보완하거나, 파일 없이 직접 입력할 때 사용하세요.">${sourceFileText || ''}</textarea><small>파일 업로드만으로 진행할 수 있으며, 본문 입력은 선택사항입니다.</small></label>
+    <div class="form-actions"><button class="btn btn-primary" type="submit">AI 카드뉴스 생성</button><button class="btn btn-outline" type="button" id="addCardBtn">카드 추가</button><button class="btn btn-outline" type="button" id="regenSummaryBtn">다시 생성</button><button class="btn btn-primary" type="button" id="approveStepOne">다음: 디자인 설정</button></div>
+    <div class="cn-summary-panel full"><div><b>AI 카드뉴스 초안</b><p>카드 장수에 맞춰 메인 화면 문구, 타이틀, 본문 요약, 카드별 핵심 메시지, 최종 메시지/CTA를 생성합니다.</p></div><div id="summaryList" class="cn-summary-list">${summaryListHtml()}</div></div>
   </form>`;
 }
 
@@ -130,6 +137,7 @@ function bindStepEvents() {
   const form = document.querySelector(`#${FORM_ID}`);
   if (form) {
     form.querySelector('[name="pressFile"]')?.addEventListener('change', handleFileSelect);
+    form.querySelector('#directInputToggle')?.addEventListener('change', event => { directInputMode = event.target.checked; renderStep(); });
     form.addEventListener('submit', async event => { event.preventDefault(); await generateSummary(new FormData(form)); });
   }
   document.querySelector('#regenSummaryBtn')?.addEventListener('click', async () => { const f = document.querySelector(`#${FORM_ID}`); if (f) await generateSummary(new FormData(f)); });
@@ -155,7 +163,6 @@ function bindStepEvents() {
   document.querySelector('#downloadAllPng')?.addEventListener('click', downloadAllPng);
   document.querySelector('#downloadPdfBtn')?.addEventListener('click', () => showToast('PDF 다운로드는 다음 단계에서 자동 변환 기능으로 연결됩니다.'));
   document.querySelector('#downloadPptBtn')?.addEventListener('click', () => showToast('PPT 편집본 다운로드는 다음 단계에서 PPTX 생성 기능으로 연결됩니다.'));
-  document.querySelector('#copyCardnewsText')?.addEventListener('click', async () => { const text = localStorage.getItem(TEXT_KEY) || ''; await navigator.clipboard.writeText(text); showToast('원고가 복사되었습니다.'); });
   document.querySelectorAll('[data-thumb]').forEach(btn => btn.addEventListener('click', () => { currentIndex = Number(btn.dataset.thumb); renderEditor(); renderThumbActive(); }));
 }
 
@@ -164,23 +171,24 @@ async function handleFileSelect(event) {
   if (!file) return;
   sourceFileName = file.name;
   const status = document.querySelector('#fileStatus');
-  if (status) status.textContent = `${file.name} 업로드됨`;
   if (file.name.toLowerCase().endsWith('.txt')) {
     sourceFileText = await file.text();
-    const textarea = document.querySelector(`#${FORM_ID} [name="pressText"]`);
-    if (textarea) textarea.value = sourceFileText;
+    directInputMode = true;
+    if (status) status.textContent = `✓ ${file.name} 업로드 완료 · 본문 반영 완료`;
+    showToast('TXT 본문을 자동 반영했습니다.');
   } else {
-    showToast('PDF/HWP/DOCX 본문 추출은 다음 단계에서 서버 파서로 연결됩니다. 현재는 본문 텍스트를 함께 입력해 주세요.');
+    sourceFileText = '';
+    directInputMode = false;
+    if (status) status.textContent = `✓ ${file.name} 업로드 완료 · 파일 기반 생성 준비 완료`;
+    showToast('파일 업로드가 완료되었습니다. AI 카드뉴스 생성을 진행할 수 있습니다.');
   }
+  renderStep();
 }
 
 async function handleImageUpload(event) {
   const files = [...(event.target.files || [])];
   if (!files.length || !currentCards.length) return;
-  for (let i = 0; i < files.length && i < currentCards.length; i += 1) {
-    const dataUrl = await fileToDataUrl(files[i]);
-    currentCards[i].imageData = dataUrl;
-  }
+  for (let i = 0; i < files.length && i < currentCards.length; i += 1) currentCards[i].imageData = await fileToDataUrl(files[i]);
   saveCards();
   showToast('업로드 이미지가 카드에 반영되었습니다.');
 }
@@ -188,10 +196,12 @@ function fileToDataUrl(file) { return new Promise(resolve => { const r = new Fil
 
 async function generateSummary(formData) {
   const values = Object.fromEntries(formData.entries());
+  const typedText = String(values.pressText || '').trim();
   const cardCount = values.cardCount === 'custom' ? values.customCardCount || 7 : values.cardCount || 7;
-  if (!values.pressText?.trim()) return showToast('보도자료 본문을 입력해 주세요.');
-  const payload = { ...values, cardCount };
-  setProgress('1/4 콘텐츠 요약 생성 중');
+  const pressText = typedText || sourceFileText || buildFileOnlyPrompt();
+  if (!pressText.trim()) return showToast('보도자료 파일을 업로드하거나 직접 입력을 선택해 본문을 입력해 주세요.');
+  const payload = { ...values, pressText, cardCount, sourceFileName };
+  setProgress('AI 카드뉴스 초안 생성 중');
   try {
     const response = await fetch('/api/generate-cardnews', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload) });
     const result = await response.json();
@@ -200,9 +210,9 @@ async function generateSummary(formData) {
     currentCards = normalizeCards(parseCards(text), payload).map(c => ({ ...c, theme: currentTone, designType: currentDesignType, visualPrompt: buildVisualPrompt(c, currentTone) }));
     currentIndex = 0;
     saveCards();
-    setProgress('콘텐츠 요약 완료');
+    setProgress('AI 카드뉴스 초안 생성 완료');
     renderStep();
-    showToast('AI 요약이 생성되었습니다. 카드별 문구를 확인해 주세요.');
+    showToast('AI 카드뉴스 초안이 생성되었습니다.');
   } catch (error) {
     const text = fallbackText(payload, error?.message);
     localStorage.setItem(TEXT_KEY, text);
@@ -212,8 +222,13 @@ async function generateSummary(formData) {
   }
 }
 
+function buildFileOnlyPrompt() {
+  if (!sourceFileName) return '';
+  return `첨부된 보도자료 파일명을 기반으로 카드뉴스 초안을 생성합니다. 실제 본문 자동 추출 기능은 추후 서버 파서와 연동 예정입니다.\n파일명: ${sourceFileName}\n주의: 본문 세부 내용이 없으므로 파일명에서 확인 가능한 기관명, 협약명, 사업명을 중심으로 구성하고, 확인되지 않은 수치와 일정은 '보도자료 내 확인 필요'로 표시하십시오.`;
+}
+
 async function generateImages(cards, tone, startIndex = 0) {
-  if (!cards.length) return showToast('먼저 콘텐츠 요약을 생성해 주세요.');
+  if (!cards.length) return showToast('먼저 AI 카드뉴스 초안을 생성해 주세요.');
   if (currentImageMode === 'graphic' || currentImageMode === 'default') return showToast('그래픽/기본 이미지 모드로 설정되어 AI 이미지 생성을 건너뜁니다.');
   setProgress('이미지 생성 중');
   for (let i = 0; i < cards.length; i += 1) {
@@ -239,7 +254,7 @@ function renderEditor() {
   const slide = document.querySelector('#cardnewsSlide');
   if (!slide) return;
   if (!currentCards.length) {
-    slide.innerHTML = `<div class="cn-empty">보도자료를 업로드하고 AI 요약을 생성하면 카드뉴스가 표시됩니다.</div>`;
+    slide.innerHTML = `<div class="cn-empty">보도자료를 업로드하고 AI 카드뉴스 초안을 생성하면 카드뉴스가 표시됩니다.</div>`;
     document.querySelector('#cardCounter') && (document.querySelector('#cardCounter').textContent = '0/0');
     return;
   }
@@ -257,7 +272,7 @@ function renderEditor() {
 }
 function renderThumbActive() { document.querySelectorAll('[data-thumb]').forEach(btn => btn.classList.toggle('on', Number(btn.dataset.thumb) === currentIndex)); }
 function thumbnailHtml() { return currentCards.length ? currentCards.map((c, i) => `<button type="button" class="cn-thumb ${i === currentIndex ? 'on' : ''}" data-thumb="${i}"><b>${i + 1}. ${escapeHtml(c.title)}</b><small>${escapeHtml(c.headline)}</small></button>`).join('') : '<div class="cn-empty-small">카드 없음</div>'; }
-function summaryListHtml() { return currentCards.length ? currentCards.map((c, i) => `<div class="cn-summary-card"><b>${i + 1}. ${escapeHtml(c.title)}</b><p>${escapeHtml(c.headline)}</p><button type="button" data-del="${i}">삭제</button></div>`).join('') : '<div class="cn-empty-small">AI 요약 생성 후 카드별 메시지가 표시됩니다.</div>'; }
+function summaryListHtml() { return currentCards.length ? currentCards.map((c, i) => `<div class="cn-summary-card"><b>${i + 1}. ${escapeHtml(c.title)}</b><p>${escapeHtml(c.headline)}</p></div>`).join('') : '<div class="cn-empty-small">AI 카드뉴스 생성 후 카드별 메시지가 표시됩니다.</div>'; }
 function applyEdit() { if (!currentCards.length) return; const c = currentCards[currentIndex]; currentCards[currentIndex] = { ...c, theme: document.querySelector('#editorTone').value, headline: document.querySelector('#editorTitle').value, body: document.querySelector('#editorBody').value, highlight: document.querySelector('#editorHighlight').value }; saveCards(); renderEditor(); showToast('수정사항이 저장되었습니다.'); }
 function addCard() { currentCards.push({ title: '신규 카드', headline: '새로운 핵심 메시지', body: '본문 내용을 입력하세요.', highlight: '강조문구', theme: currentTone, designType: currentDesignType }); currentIndex = currentCards.length - 1; saveCards(); renderStep(); }
 function saveProject() { const project = { sourceFileName, cards: currentCards, tone: currentTone, designType: currentDesignType, imageMode: currentImageMode, createdAt: new Date().toISOString(), cardCount: currentCards.length, approved: document.querySelector('#finalApproved')?.checked || false }; localStorage.setItem(PROJECT_KEY, JSON.stringify(project)); showToast('최종 카드뉴스 프로젝트가 저장되었습니다.'); }
@@ -273,9 +288,9 @@ function normalizeCards(cards, values) { const count = Number(values.cardCount |
 function buildVisualPrompt(card, tone) { return `Create a premium vertical Instagram card news background image, 4:5 ratio, no text, no logo, no watermark. Theme: ${tone}. Design type: ${currentDesignType}. Topic: ${card.title}. Visual concept: ${card.headline}. Context: Incheon National University RISE project, regional innovation, students, industry collaboration, modern campus, public sector achievement, clean editorial style, high-end social media visual, enough empty space for Korean typography overlay.`; }
 function field(block, name) { const m = String(block || '').match(new RegExp(`-\\s*${name}\\s*:\\s*([\\s\\S]*?)(?=\\n-\\s*(Design Guide|Headline|Body|Highlight|Insight Content)\\s*:|$)`, 'i')); return m ? clean(m[1]) : ''; }
 function clean(v) { return String(v || '').replace(/\n+/g, ' ').replace(/^[-•\s]+/, '').trim(); }
-function inferTitle(text) { const first = String(text || '').split('\n').map(v => v.trim()).find(Boolean) || 'RISE 성과'; return first.length > 28 ? `${first.slice(0, 28)}...` : first; }
+function inferTitle(text) { const first = String(text || '').split('\n').map(v => v.trim()).find(Boolean) || sourceFileName || 'RISE 성과'; return first.length > 28 ? `${first.slice(0, 28)}...` : first; }
 function designTypeLabel(id) { return DESIGN_TYPES.find(d => d.id === id)?.label || 'AI VISUAL'; }
-function fallbackText(values, error = '') { const title = inferTitle(values.pressText); return `4. 텍스트 중심 상세 슬라이드 구성\n[슬라이드 1: 표지]\n- Headline: ${title}, 왜 주목해야 할까요?\n- Body: 인천대학교 RISE사업 성과 카드뉴스\n- Highlight: 지역혁신의 현장\n[슬라이드 2: 왜 필요한가]\n- Headline: 변화는 현장에서 시작됩니다\n- Body: 대학 교육과 지역 산업의 수요가 만날 때 실질적인 성과가 만들어집니다.\n- Highlight: 교육과 산업의 거리 좁히기\n[슬라이드 3: 무엇을 했나]\n- Headline: 이번 사업의 핵심 활동\n- Body: 프로그램, 참여자, 협력기관, 운영내용을 중심으로 정리합니다.\n- Highlight: 운영내용을 한눈에\n[슬라이드 4: 성과]\n- Headline: 성과는 숫자와 변화로 남습니다\n- Body: 참여인원, 만족도, 협력기업, 교육성과 등 확인 가능한 성과를 배치합니다.\n- Highlight: 근거 있는 성과\n[슬라이드 5: 의미]\n- Headline: 단순한 행사가 아니라 연결의 시작\n- Body: 학생은 현장을 이해하고 기업은 미래 인재를 발견합니다.\n- Highlight: 지역혁신은 연결에서 시작\n${error ? `\n[오류 참고] ${error}` : ''}`; }
+function fallbackText(values, error = '') { const title = inferTitle(values.pressText); return `4. 텍스트 중심 상세 슬라이드 구성\n[슬라이드 1: 표지]\n- Headline: ${title}, 카드뉴스 초안\n- Body: 첨부 보도자료를 기반으로 인천대학교 RISE사업 성과를 소개합니다.\n- Highlight: 지역혁신의 현장\n[슬라이드 2: 핵심 내용]\n- Headline: 보도자료 핵심을 한눈에\n- Body: 주요 기관, 추진 배경, 협력 내용, 기대효과를 카드별로 정리합니다.\n- Highlight: 핵심 메시지 중심 재구성\n[슬라이드 3: 추진 내용]\n- Headline: 무엇을 추진했나\n- Body: 보도자료에 포함된 사업 운영 내용과 협력 구조를 정리합니다.\n- Highlight: 운영내용을 한눈에\n[슬라이드 4: 기대 효과]\n- Headline: 성과는 지역으로 이어집니다\n- Body: 학생, 기업, 지역사회 관점에서 기대되는 효과를 정리합니다.\n- Highlight: 지역혁신과 인재양성\n[슬라이드 5: 마무리]\n- Headline: RISE의 변화는 계속됩니다\n- Body: 인천대학교 RISE사업단은 지역과 산업을 연결하는 성과확산을 이어갑니다.\n- Highlight: 지속가능한 사업 운영\n${error ? `\n[오류 참고] ${error}` : ''}`; }
 function setProgress(message) { const el = document.querySelector(`#${PROGRESS_ID}`); if (el) el.textContent = message; }
 function escapeHtml(v) { return String(v || '').replaceAll('&', '&amp;').replaceAll('<', '&lt;').replaceAll('>', '&gt;').replaceAll('"', '&quot;'); }
-function ensureStyles() { if (document.querySelector('#cardnewsWizardStyles')) return; const style = document.createElement('style'); style.id = 'cardnewsWizardStyles'; style.textContent = `.cn-wizard{display:grid;grid-template-columns:repeat(4,1fr);gap:10px}.cn-step{border:1px solid #dbe3ef;background:#fff;border-radius:16px;padding:14px;font-weight:900;color:#64748b;text-align:left}.cn-step span{display:inline-grid;place-items:center;width:28px;height:28px;border-radius:999px;background:#eef2ff;color:#4f46e5;margin-right:8px}.cn-step.on{border-color:#4f46e5;background:#eef2ff;color:#1e1b4b}.cn-summary-panel,.cn-save-box{border:1px solid #dbe3ef;border-radius:18px;background:#f8fafc;padding:16px}.cn-summary-list{display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:10px;margin-top:12px}.cn-summary-card,.cn-empty-small{border:1px solid #e2e8f0;background:#fff;border-radius:14px;padding:12px;font-size:12px}.cn-summary-card b{display:block;color:#0f172a}.cn-summary-card p{color:#64748b}.cn-choice-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(180px,1fr));gap:10px}.cn-choice{border:1px solid #dbe3ef;border-radius:16px;background:#fff;padding:14px;text-align:left}.cn-choice.on{border-color:#4f46e5;background:#eef2ff}.cn-choice b{display:block}.cn-choice small{color:#64748b}.cn-info{background:#f8fafc;border:1px dashed #cbd5e1;border-radius:14px;padding:14px;color:#475569}.cn-check{display:flex;align-items:center;gap:8px}.full{grid-column:1/-1}.stack{flex-direction:column;align-items:stretch}.full-btn{width:100%;margin-top:12px}.cn-review-grid{display:grid;grid-template-columns:220px minmax(360px,1fr) 330px;gap:20px}.cn-thumbnails,.cardnews-side-editor{border:1px solid #e2e8f0;border-radius:18px;background:#fff;padding:16px}.cn-thumb-title{font-weight:900;margin-bottom:10px}.cn-thumb{width:100%;border:1px solid #e2e8f0;border-radius:12px;padding:10px;background:#fff;text-align:left;margin-bottom:8px}.cn-thumb.on{border-color:#4f46e5;background:#eef2ff}.cn-thumb b,.cn-thumb small{display:block}.cn-thumb small{color:#64748b;margin-top:4px}.cardnews-maker-head{display:flex;justify-content:space-between;align-items:center;margin-bottom:12px;color:#64748b;font-size:12px}.cardnews-maker-head strong{display:block;color:#0f172a;font-size:15px}.cardnews-progress{font-weight:900;color:#1d4ed8}.cardnews-stage-wrap{background:#f8fafc;border:1px solid #dbe3ef;border-radius:20px;padding:20px;display:flex;justify-content:center}.cardnews-stage{width:min(440px,100%);aspect-ratio:4/5;border-radius:28px;overflow:hidden;box-shadow:0 22px 55px rgba(15,23,42,.18)}.cardnews-slide{position:relative;width:100%;height:100%;padding:34px;box-sizing:border-box;overflow:hidden}.cn-empty{display:grid;place-items:center;height:100%;background:#f1f5f9;color:#64748b;font-weight:900;text-align:center;padding:30px}.cn-visual{position:absolute;inset:0 0 auto 0;height:42%;background-size:cover;background-position:center;opacity:.30;background-color:rgba(255,255,255,.16);display:flex;align-items:center;padding-left:38px;font-weight:950;font-size:28px}.cn-top{position:relative;z-index:2;display:flex;justify-content:space-between;font-size:13px}.cn-content{position:relative;z-index:2;height:100%;display:flex;flex-direction:column}.cn-tag{margin-top:44%;font-weight:950;font-size:17px}.cn-content h1{font-size:42px;line-height:1.12;margin:15px 0 0;font-weight:950;word-break:keep-all}.cn-content p{font-size:18px;line-height:1.55;margin:18px 0 0;font-weight:700;word-break:keep-all}.cn-highlight{margin-top:auto;border:2px solid;border-radius:22px;padding:18px;font-size:24px;line-height:1.2;font-weight:950;word-break:keep-all}.cn-content footer{font-size:12px;font-weight:800;margin-top:16px}.cardnews-side-editor label{display:block;font-size:12px;font-weight:900;color:#64748b;margin:12px 0}.cardnews-side-editor textarea,.cardnews-side-editor select{width:100%;border:1px solid #cbd5e1;border-radius:12px;padding:10px;font-size:13px}.cardnews-nav{display:flex;align-items:center;justify-content:space-between;gap:10px}.cardnews-nav strong{font-size:15px;color:#1d4ed8}.cn-checklist{border-top:1px solid #e2e8f0;margin-top:14px;padding-top:14px}.cn-checklist b,.cn-checklist label{display:block;margin:8px 0;color:#334155}.cn-meta-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(160px,1fr));gap:10px}.cn-meta-grid div{border:1px solid #e2e8f0;background:#fff;border-radius:12px;padding:12px;font-weight:800;color:#334155}.cardnews-output{white-space:pre-wrap;line-height:1.7;min-height:240px}@media(max-width:1100px){.cn-review-grid{grid-template-columns:1fr}.cn-wizard{grid-template-columns:1fr 1fr}.cardnews-side-editor{order:-1}}`; document.head.appendChild(style); }
+function ensureStyles() { if (document.querySelector('#cardnewsWizardStyles')) return; const style = document.createElement('style'); style.id = 'cardnewsWizardStyles'; style.textContent = `.cn-wizard{display:grid;grid-template-columns:repeat(4,1fr);gap:10px}.cn-step{border:1px solid #dbe3ef;background:#fff;border-radius:16px;padding:14px;font-weight:900;color:#64748b;text-align:left}.cn-step span{display:inline-grid;place-items:center;width:28px;height:28px;border-radius:999px;background:#eef2ff;color:#4f46e5;margin-right:8px}.cn-step.on{border-color:#4f46e5;background:#eef2ff;color:#1e1b4b}.cn-summary-panel,.cn-save-box{border:1px solid #dbe3ef;border-radius:18px;background:#f8fafc;padding:16px}.cn-summary-list{display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:10px;margin-top:12px}.cn-summary-card,.cn-empty-small{border:1px solid #e2e8f0;background:#fff;border-radius:14px;padding:12px;font-size:12px}.cn-summary-card b{display:block;color:#0f172a}.cn-summary-card p{color:#64748b}.cn-choice-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(180px,1fr));gap:10px}.cn-choice{border:1px solid #dbe3ef;border-radius:16px;background:#fff;padding:14px;text-align:left}.cn-choice.on{border-color:#4f46e5;background:#eef2ff}.cn-choice b{display:block}.cn-choice small{color:#64748b}.cn-info{background:#f8fafc;border:1px dashed #cbd5e1;border-radius:14px;padding:14px;color:#475569}.cn-check{display:flex;align-items:center;gap:8px}.cn-file-status{display:block;margin-top:8px;color:#64748b}.cn-file-status.ok{color:#047857;font-weight:900}.cn-direct-input{display:none}.cn-direct-input.show{display:block}.full{grid-column:1/-1}.stack{flex-direction:column;align-items:stretch}.full-btn{width:100%;margin-top:12px}.cn-review-grid{display:grid;grid-template-columns:220px minmax(360px,1fr) 330px;gap:20px}.cn-thumbnails,.cardnews-side-editor{border:1px solid #e2e8f0;border-radius:18px;background:#fff;padding:16px}.cn-thumb-title{font-weight:900;margin-bottom:10px}.cn-thumb{width:100%;border:1px solid #e2e8f0;border-radius:12px;padding:10px;background:#fff;text-align:left;margin-bottom:8px}.cn-thumb.on{border-color:#4f46e5;background:#eef2ff}.cn-thumb b,.cn-thumb small{display:block}.cn-thumb small{color:#64748b;margin-top:4px}.cardnews-maker-head{display:flex;justify-content:space-between;align-items:center;margin-bottom:12px;color:#64748b;font-size:12px}.cardnews-maker-head strong{display:block;color:#0f172a;font-size:15px}.cardnews-progress{font-weight:900;color:#1d4ed8}.cardnews-stage-wrap{background:#f8fafc;border:1px solid #dbe3ef;border-radius:20px;padding:20px;display:flex;justify-content:center}.cardnews-stage{width:min(440px,100%);aspect-ratio:4/5;border-radius:28px;overflow:hidden;box-shadow:0 22px 55px rgba(15,23,42,.18)}.cardnews-slide{position:relative;width:100%;height:100%;padding:34px;box-sizing:border-box;overflow:hidden}.cn-empty{display:grid;place-items:center;height:100%;background:#f1f5f9;color:#64748b;font-weight:900;text-align:center;padding:30px}.cn-visual{position:absolute;inset:0 0 auto 0;height:42%;background-size:cover;background-position:center;opacity:.30;background-color:rgba(255,255,255,.16);display:flex;align-items:center;padding-left:38px;font-weight:950;font-size:28px}.cn-top{position:relative;z-index:2;display:flex;justify-content:space-between;font-size:13px}.cn-content{position:relative;z-index:2;height:100%;display:flex;flex-direction:column}.cn-tag{margin-top:44%;font-weight:950;font-size:17px}.cn-content h1{font-size:42px;line-height:1.12;margin:15px 0 0;font-weight:950;word-break:keep-all}.cn-content p{font-size:18px;line-height:1.55;margin:18px 0 0;font-weight:700;word-break:keep-all}.cn-highlight{margin-top:auto;border:2px solid;border-radius:22px;padding:18px;font-size:24px;line-height:1.2;font-weight:950;word-break:keep-all}.cn-content footer{font-size:12px;font-weight:800;margin-top:16px}.cardnews-side-editor label{display:block;font-size:12px;font-weight:900;color:#64748b;margin:12px 0}.cardnews-side-editor textarea,.cardnews-side-editor select{width:100%;border:1px solid #cbd5e1;border-radius:12px;padding:10px;font-size:13px}.cardnews-nav{display:flex;align-items:center;justify-content:space-between;gap:10px}.cardnews-nav strong{font-size:15px;color:#1d4ed8}.cn-checklist{border-top:1px solid #e2e8f0;margin-top:14px;padding-top:14px}.cn-checklist b,.cn-checklist label{display:block;margin:8px 0;color:#334155}.cn-meta-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(160px,1fr));gap:10px}.cn-meta-grid div{border:1px solid #e2e8f0;background:#fff;border-radius:12px;padding:12px;font-weight:800;color:#334155}.cardnews-output{white-space:pre-wrap;line-height:1.7;min-height:240px}@media(max-width:1100px){.cn-review-grid{grid-template-columns:1fr}.cn-wizard{grid-template-columns:1fr 1fr}.cardnews-side-editor{order:-1}}`; document.head.appendChild(style); }
