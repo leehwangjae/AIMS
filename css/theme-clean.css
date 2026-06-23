@@ -313,6 +313,98 @@ html, body {
 .badge-optional { background: #f1f5f9 !important; color: #475569 !important; }
 .tbl th { background: #f8fafc !important; color: #64748b !important; }
 
+/* ============================================================
+   STATUS SECTIONS — Team / Organization / Workflow
+   Restored business-critical info, redesigned flat & clean
+   ============================================================ */
+.aims2-status-grid { gap: 16px !important; margin-bottom: 16px !important; }
+
+/* small section tag chip in panel headers */
+.aims2-section-tag {
+  padding: 4px 9px;
+  border-radius: 6px;
+  background: #f1f5f9;
+  color: #64748b;
+  font-size: 10.5px;
+  font-weight: 700;
+  letter-spacing: .06em;
+  text-transform: uppercase;
+}
+
+/* Team metrics */
+.aims2-team-metric {
+  border: 1px solid #e8eaed !important;
+  border-radius: 10px !important;
+  background: #f8fafc !important;
+  padding: 14px 16px !important;
+}
+.aims2-team-metric span { color: #64748b !important; font-weight: 650 !important; }
+.aims2-team-metric strong { color: #1e293b !important; font-size: 24px !important; font-weight: 800 !important; letter-spacing: -0.03em !important; }
+.aims2-team-metric em { color: #94a3b8 !important; font-weight: 550 !important; }
+.aims2-unit-card-list article {
+  border: 1px solid #e8eaed !important;
+  border-radius: 10px !important;
+  background: #fff !important;
+}
+.aims2-unit-card-list strong { color: #1e293b !important; }
+.aims2-unit-card-list span { color: #64748b !important; font-weight: 550 !important; }
+
+/* Organization health rows */
+.aims2-org-row {
+  border: 1px solid #e8eaed !important;
+  border-left: 3px solid #cbd5e1 !important;
+  border-radius: 10px !important;
+  background: #fff !important;
+}
+.aims2-org-row strong { color: #1e293b !important; }
+.aims2-org-row span { color: #64748b !important; font-weight: 550 !important; }
+.aims2-org-row em { border-radius: 6px !important; font-weight: 700 !important; }
+.aims2-org-row.tone-green { border-left-color: #0f766e !important; }
+.aims2-org-row.tone-green em { background: #e6f4f1 !important; color: #0f766e !important; }
+.aims2-org-row.tone-amber { border-left-color: #b45309 !important; }
+.aims2-org-row.tone-amber em { background: #fdf3e7 !important; color: #b45309 !important; }
+.aims2-org-row.tone-danger { border-left-color: #dc2626 !important; }
+.aims2-org-row.tone-danger em { background: #fdeced !important; color: #dc2626 !important; }
+
+/* Workflow — flat cards, blue accents, no gradient/violet */
+.aims2-workflow {
+  border: 1px solid #e8eaed !important;
+  border-radius: 12px !important;
+  background: #fff !important;
+  box-shadow: none !important;
+}
+.aims2-workflow-grid { gap: 12px !important; }
+.aims2-workflow-card {
+  border: 1px solid #e8eaed !important;
+  border-radius: 10px !important;
+  background: #fff !important;
+  padding: 16px !important;
+  transition: border-color .12s ease, background .12s ease !important;
+}
+.aims2-workflow-card:hover {
+  border-color: #bfd4ff !important;
+  background: #f8fbff !important;
+  transform: none !important;
+  box-shadow: none !important;
+}
+.aims2-workflow-top { display: flex; align-items: center; justify-content: space-between; }
+.aims2-workflow-card i {
+  width: 36px !important;
+  height: 36px !important;
+  border-radius: 10px !important;
+  background: #eff6ff !important;
+  color: #2563eb !important;
+  font-size: 18px !important;
+}
+.aims2-workflow-step {
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: .06em;
+  color: #94a3b8;
+}
+.aims2-workflow-card strong { color: #1e293b !important; font-weight: 750 !important; }
+.aims2-workflow-card span { color: #64748b !important; font-weight: 550 !important; }
+
 /* ---- Normalize gradient fills / violet accents app-wide ---- */
 .budget-total-fill-v2,
 .budget-mini-fill-v2,

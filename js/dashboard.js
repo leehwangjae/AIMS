@@ -31,6 +31,8 @@ export function renderDashboardSummary(targetSelector) {
   const budgetSummary = getBudgetSummary();
   const kpiSummary = getKpiSummary();
   const todayTasks = getTodayTasks(user);
+  const teamSummary = getTeamSummary(user);
+  const orgHealth = getOrganizationHealth();
   const recentTasks = getRecentTasks();
 
   target.innerHTML = `
@@ -79,6 +81,55 @@ export function renderDashboardSummary(targetSelector) {
           ${renderAiActionButtons()}
         </div>
       </aside>
+    </section>
+
+    <section class="aims2-status-grid">
+      <section class="sc dashboard-panel">
+        <div class="sch dashboard-panel-head">
+          <div>
+            <div class="sct">우리 팀 현황</div>
+            <p>${escapeHtml(teamSummary.label)} · 담당 단위과제 기준</p>
+          </div>
+          <span class="aims2-section-tag">Team</span>
+        </div>
+        <div class="scb">
+          <div class="aims2-team-grid">
+            ${renderTeamMetric('KPI 평균', `${teamSummary.kpiAverage}%`, '담당 단위 달성률')}
+            ${renderTeamMetric('진행 업무', `${teamSummary.activeTasks}건`, '진행·검토 중')}
+            ${renderTeamMetric('예산 집행', `${teamSummary.budgetRate}%`, '담당 단위 집행률')}
+          </div>
+          ${renderTeamUnitCards(teamSummary.units)}
+        </div>
+      </section>
+
+      <section class="sc dashboard-panel">
+        <div class="sch dashboard-panel-head">
+          <div>
+            <div class="sct">사업단 전체 현황</div>
+            <p>RISE 단위과제별 운영 상태</p>
+          </div>
+          <span class="aims2-section-tag">Organization</span>
+        </div>
+        <div class="scb aims2-org-list">
+          ${orgHealth.map(renderOrgHealthRow).join('')}
+        </div>
+      </section>
+    </section>
+
+    <section class="aims2-workflow sc">
+      <div class="sch dashboard-panel-head">
+        <div>
+          <div class="sct">성과 → 보고·확산 Workflow</div>
+          <p>성과 데이터를 보고서·보도자료·카드뉴스로 연결합니다.</p>
+        </div>
+        <span class="aims2-section-tag">Workflow</span>
+      </div>
+      <div class="scb aims2-workflow-grid">
+        ${renderWorkflowCard('성과 입력', '실적과 증빙을 정리합니다.', 'kpi', 'ti-chart-dots', 1)}
+        ${renderWorkflowCard('보도자료 작성', '성과를 대외 메시지로 변환합니다.', 'ai-center', 'ti-news', 2)}
+        ${renderWorkflowCard('카드뉴스 제작', '보도자료를 SNS 카드뉴스로 압축합니다.', 'cardnews', 'ti-layout-grid', 3)}
+        ${renderWorkflowCard('성과보고서 반영', '월간·연차 보고 자료로 연결합니다.', 'reports', 'ti-file-analytics', 4)}
+      </div>
     </section>
 
     <section class="dashboard-layout-v4 aims2-detail-layout">
@@ -278,10 +329,13 @@ function renderOrgHealthRow(item) {
   `;
 }
 
-function renderWorkflowCard(title, description, route, icon) {
+function renderWorkflowCard(title, description, route, icon, step) {
   return `
     <button type="button" class="aims2-workflow-card" data-dashboard-route="${route}">
-      <i class="ti ${icon}"></i>
+      <div class="aims2-workflow-top">
+        <i class="ti ${icon}"></i>
+        <span class="aims2-workflow-step">STEP ${step}</span>
+      </div>
       <strong>${title}</strong>
       <span>${description}</span>
     </button>
