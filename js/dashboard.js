@@ -31,23 +31,26 @@ export function renderDashboardSummary(targetSelector) {
   const budgetSummary = getBudgetSummary();
   const kpiSummary = getKpiSummary();
   const todayTasks = getTodayTasks(user);
-  const teamSummary = getTeamSummary(user);
-  const orgHealth = getOrganizationHealth(kpiSummary, budgetSummary, taskSummary);
   const recentTasks = getRecentTasks();
 
   target.innerHTML = `
-    <section class="dashboard-hero sc dashboard-redesign-hero aims2-hero">
-      <div class="scb dashboard-hero-inner aims2-hero-inner">
-        <div>
-          <div class="eyebrow">AIMS 2.0 · Role-based Workspace</div>
-          <h2 class="page-title">안녕하세요, ${escapeHtml(getDisplayName(user))}님</h2>
-          <p class="page-desc">오늘 해야 할 일과 팀·사업단 현황을 한 화면에서 확인합니다.</p>
-        </div>
-        <div class="dashboard-hero-actions">
-          <button class="btn btn-primary" data-dashboard-route="tasks">오늘 업무 열기</button>
-          <button class="btn btn-outline" data-dashboard-route="ai-center">AI Assistant</button>
-        </div>
+    <header class="dash-head sc">
+      <div>
+        <div class="eyebrow">AIMS 2.0 Workspace</div>
+        <h2 class="page-title">안녕하세요, ${escapeHtml(getDisplayName(user))}님</h2>
+        <p class="page-desc">오늘 처리할 업무 ${todayTasks.length}건 · 핵심 현황을 한 화면에서 확인합니다.</p>
       </div>
+      <div class="dashboard-hero-actions">
+        <button class="btn btn-primary" data-dashboard-route="tasks">오늘 업무 열기</button>
+        <button class="btn btn-outline" data-dashboard-route="ai-center">AI Assistant</button>
+      </div>
+    </header>
+
+    <section class="dashboard-command-grid aims2-command-grid">
+      ${renderCommandCard({ icon: '📝', label: '미처리 업무', value: taskSummary.open, hint: '진행 필요', tone: taskSummary.open ? 'amber' : 'green' })}
+      ${renderCommandCard({ icon: '🔥', label: '지연 업무', value: taskSummary.delayed, hint: '기한 초과', tone: taskSummary.delayed ? 'danger' : 'green' })}
+      ${renderCommandCard({ icon: '📊', label: 'KPI 평균', value: `${kpiSummary.averageRate}%`, hint: `${kpiSummary.riskCount}개 점검`, tone: kpiSummary.riskCount ? 'amber' : 'green' })}
+      ${renderCommandCard({ icon: '💰', label: '예산 집행률', value: `${budgetSummary.rate}%`, hint: `잔액 ${formatWonShort(budgetSummary.remaining)}`, tone: 'primary' })}
     </section>
 
     <section class="aims2-dashboard-shell">
@@ -55,7 +58,7 @@ export function renderDashboardSummary(targetSelector) {
         <div class="sch dashboard-panel-head">
           <div>
             <div class="sct">오늘의 업무</div>
-            <p>사용자 역할·담당 업무·마감일 기준 우선순위</p>
+            <p>역할·담당 업무·마감일 기준 우선순위</p>
           </div>
           <span class="aims2-priority-badge">${todayTasks.length}건</span>
         </div>
@@ -67,8 +70,8 @@ export function renderDashboardSummary(targetSelector) {
       <aside class="aims2-insight-panel sc">
         <div class="sch dashboard-panel-head">
           <div>
-            <div class="sct">AIMS Insight</div>
-            <p>AI가 추천하는 다음 액션</p>
+            <div class="sct">AI 추천 액션</div>
+            <p>다음에 처리하면 좋은 작업</p>
           </div>
         </div>
         <div class="scb aims2-ai-stack">
@@ -76,60 +79,6 @@ export function renderDashboardSummary(targetSelector) {
           ${renderAiActionButtons()}
         </div>
       </aside>
-    </section>
-
-    <section class="dashboard-command-grid aims2-command-grid">
-      ${renderCommandCard({ icon: '📝', label: '미처리 업무', value: taskSummary.open, hint: '진행 필요', tone: taskSummary.open ? 'amber' : 'green' })}
-      ${renderCommandCard({ icon: '🔥', label: '지연 업무', value: taskSummary.delayed, hint: '기한 초과', tone: taskSummary.delayed ? 'danger' : 'green' })}
-      ${renderCommandCard({ icon: '📊', label: 'KPI 평균', value: `${kpiSummary.averageRate}%`, hint: `${kpiSummary.riskCount}개 점검`, tone: kpiSummary.riskCount ? 'amber' : 'green' })}
-      ${renderCommandCard({ icon: '💰', label: '예산 집행률', value: `${budgetSummary.rate}%`, hint: `잔액 ${formatWonShort(budgetSummary.remaining)}`, tone: 'purple' })}
-    </section>
-
-    <section class="aims2-status-grid">
-      <section class="sc dashboard-panel">
-        <div class="sch dashboard-panel-head">
-          <div>
-            <div class="sct">우리 팀 현황</div>
-            <p>${escapeHtml(teamSummary.label)} 기준 업무·성과·예산 요약</p>
-          </div>
-        </div>
-        <div class="scb">
-          <div class="aims2-team-grid">
-            ${renderTeamMetric('실적 점검', `${teamSummary.kpiAverage}%`, 'KPI 평균 달성률')}
-            ${renderTeamMetric('업무 진행', `${teamSummary.activeTasks}건`, '진행·검토 중 업무')}
-            ${renderTeamMetric('예산 집행', `${teamSummary.budgetRate}%`, '담당 단위 집행률')}
-          </div>
-          ${renderTeamUnitCards(teamSummary.units)}
-        </div>
-      </section>
-
-      <section class="sc dashboard-panel">
-        <div class="sch dashboard-panel-head">
-          <div>
-            <div class="sct">사업단 전체 현황</div>
-            <p>RISE 단위과제별 위험도와 운영 상태</p>
-          </div>
-          <button class="btn btn-outline btn-sm" data-dashboard-route="reports">보고자료 보기</button>
-        </div>
-        <div class="scb aims2-org-list">
-          ${orgHealth.map(renderOrgHealthRow).join('')}
-        </div>
-      </section>
-    </section>
-
-    <section class="aims2-workflow sc">
-      <div class="sch dashboard-panel-head">
-        <div>
-          <div class="sct">성과 → 보고·확산 Workflow</div>
-          <p>성과 데이터를 보고서·보도자료·카드뉴스로 바로 연결합니다.</p>
-        </div>
-      </div>
-      <div class="scb aims2-workflow-grid">
-        ${renderWorkflowCard('성과 입력', '실적과 증빙을 정리합니다.', 'kpi-1-1', 'ti-chart-dots')}
-        ${renderWorkflowCard('보도자료 작성', '성과를 대외 메시지로 변환합니다.', 'ai-center', 'ti-news')}
-        ${renderWorkflowCard('카드뉴스 제작', '보도자료를 SNS 카드뉴스로 압축합니다.', 'cardnews', 'ti-layout-grid')}
-        ${renderWorkflowCard('성과보고서 반영', '월간·연차 보고 자료로 연결합니다.', 'reports', 'ti-file-analytics')}
-      </div>
     </section>
 
     <section class="dashboard-layout-v4 aims2-detail-layout">
