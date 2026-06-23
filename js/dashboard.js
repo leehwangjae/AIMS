@@ -33,6 +33,7 @@ export function renderDashboardSummary(targetSelector) {
   const todayTasks = getTodayTasks(user);
   const teamSummary = getTeamSummary(user);
   const orgHealth = getOrganizationHealth();
+  const budgetRows = getBudgetDashboardRows();
   const recentTasks = getRecentTasks();
 
   target.innerHTML = `
@@ -129,6 +130,27 @@ export function renderDashboardSummary(targetSelector) {
         ${renderWorkflowCard('보도자료 작성', '성과를 대외 메시지로 변환합니다.', 'ai-center', 'ti-news', 2)}
         ${renderWorkflowCard('카드뉴스 제작', '보도자료를 SNS 카드뉴스로 압축합니다.', 'cardnews', 'ti-layout-grid', 3)}
         ${renderWorkflowCard('성과보고서 반영', '월간·연차 보고 자료로 연결합니다.', 'reports', 'ti-file-analytics', 4)}
+      </div>
+    </section>
+
+    <section class="aims2-budget sc">
+      <div class="sch dashboard-panel-head">
+        <div>
+          <div class="sct">예산 집행 현황</div>
+          <p>RISE 사업비 편성·집행 · 단위과제별 집행률</p>
+        </div>
+        <span class="aims2-section-tag">Budget</span>
+      </div>
+      <div class="scb">
+        <div class="aims2-budget-totals">
+          ${renderBudgetTotal('편성액', formatWonShort(budgetSummary.allocated))}
+          ${renderBudgetTotal('집행액', formatWonShort(budgetSummary.executed))}
+          ${renderBudgetTotal('잔액', formatWonShort(budgetSummary.remaining))}
+          ${renderBudgetTotal('집행률', `${budgetSummary.rate}%`, true)}
+        </div>
+        <div class="aims2-budget-list">
+          ${budgetRows.map(renderBudgetRow).join('')}
+        </div>
       </div>
     </section>
 
@@ -325,6 +347,30 @@ function renderOrgHealthRow(item) {
         <span>KPI ${item.kpiAverage}% · 예산 ${item.budgetRate}% · 미완료 업무 ${item.openTasks}건</span>
       </div>
       <em>${item.status}</em>
+    </article>
+  `;
+}
+
+function renderBudgetTotal(label, value, emphasis = false) {
+  return `<div class="aims2-budget-total ${emphasis ? 'is-rate' : ''}"><span>${label}</span><strong>${value}</strong></div>`;
+}
+
+function renderBudgetRow(row) {
+  const rate = row.allocated ? Math.round((row.executed / row.allocated) * 1000) / 10 : 0;
+  const tone = rate >= 80 ? 'green' : rate >= 50 ? 'amber' : 'danger';
+  const width = Math.min(rate, 100);
+  return `
+    <article class="aims2-budget-row">
+      <div class="aims2-budget-row-head">
+        <strong>${row.label}</strong>
+        <span class="aims2-budget-rate tone-${tone}">${rate}%</span>
+      </div>
+      <div class="aims2-budget-bar"><span class="tone-${tone}" style="width:${width}%"></span></div>
+      <div class="aims2-budget-figures">
+        <span>집행 ${formatWonShort(row.executed)}</span>
+        <span>편성 ${formatWonShort(row.allocated)}</span>
+        <span>잔액 ${formatWonShort(row.remaining)}</span>
+      </div>
     </article>
   `;
 }
