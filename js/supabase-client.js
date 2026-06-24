@@ -1,16 +1,25 @@
-const SUPABASE_URL = window.AIMS_SUPABASE_URL || import.meta?.env?.VITE_SUPABASE_URL || '';
-const SUPABASE_ANON_KEY = window.AIMS_SUPABASE_ANON_KEY || import.meta?.env?.VITE_SUPABASE_ANON_KEY || '';
+function readRuntimeConfig() {
+  return {
+    url: window.AIMS_SUPABASE_URL || '',
+    anonKey: window.AIMS_SUPABASE_ANON_KEY || ''
+  };
+}
 
 let clientPromise = null;
 
 export function isSupabaseEnabled() {
-  return Boolean(SUPABASE_URL && SUPABASE_ANON_KEY);
+  const { url, anonKey } = readRuntimeConfig();
+  return Boolean(url && anonKey);
 }
 
 export async function getSupabaseClient() {
-  if (!isSupabaseEnabled()) return null;
+  const { url, anonKey } = readRuntimeConfig();
+  if (!url || !anonKey) {
+    console.warn('[Supabase] public config is missing. AIMS will use localStorage only.');
+    return null;
+  }
   if (!clientPromise) {
-    clientPromise = import('https://esm.sh/@supabase/supabase-js@2').then(({ createClient }) => createClient(SUPABASE_URL, SUPABASE_ANON_KEY));
+    clientPromise = import('https://esm.sh/@supabase/supabase-js@2').then(({ createClient }) => createClient(url, anonKey));
   }
   return clientPromise;
 }
