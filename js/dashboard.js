@@ -32,30 +32,40 @@ export function renderDashboardSummary(targetSelector) {
   const kpiSummary = getKpiSummary();
   const todayTasks = getTodayTasks(user);
   const teamSummary = getTeamSummary(user);
-  const orgHealth = getOrganizationHealth(kpiSummary, budgetSummary, taskSummary);
+  const orgHealth = getOrganizationHealth();
+  const budgetRows = getBudgetDashboardRows();
   const recentTasks = getRecentTasks();
 
   target.innerHTML = `
-    <section class="dashboard-hero sc dashboard-redesign-hero aims2-hero">
-      <div class="scb dashboard-hero-inner aims2-hero-inner">
-        <div>
-          <div class="eyebrow">AIMS 2.0 · Role-based Workspace</div>
-          <h2 class="page-title">안녕하세요, ${escapeHtml(getDisplayName(user))}님</h2>
-          <p class="page-desc">오늘 해야 할 일과 팀·사업단 현황을 한 화면에서 확인합니다.</p>
+    <header class="dash-hero">
+      <div class="dash-hero-top">
+        <div class="dash-hero-intro">
+          <div class="dash-hero-eyebrow">RISE 통합관리 · ${formatKoreanDate()}</div>
+          <h2>안녕하세요, ${escapeHtml(getDisplayName(user))}님</h2>
+          <p>${escapeHtml(teamSummary.label)} · 오늘 처리할 핵심 업무 ${todayTasks.length}건을 확인하세요.</p>
+          <div class="dash-hero-actions">
+            <button class="btn btn-hero-primary" data-dashboard-route="tasks">오늘 업무 열기</button>
+            <button class="btn btn-hero-ghost" data-dashboard-route="ai-center">AI Assistant 열기</button>
+          </div>
         </div>
-        <div class="dashboard-hero-actions">
-          <button class="btn btn-primary" data-dashboard-route="tasks">오늘 업무 열기</button>
-          <button class="btn btn-outline" data-dashboard-route="ai-center">AI Assistant</button>
+        <div class="dash-hero-pulse">
+          ${renderHeroGauge('사업단 평균 KPI', kpiSummary.averageRate)}
         </div>
       </div>
-    </section>
+      <div class="dash-hero-stats">
+        ${renderHeroStat('미처리 업무', taskSummary.open, '건', taskSummary.open ? 'amber' : 'green', '진행 필요')}
+        ${renderHeroStat('지연 업무', taskSummary.delayed, '건', taskSummary.delayed ? 'danger' : 'green', '기한 초과')}
+        ${renderHeroStat('점검 필요 KPI', kpiSummary.riskCount, '개', kpiSummary.riskCount ? 'amber' : 'green', '80% 미만')}
+        ${renderHeroStat('예산 집행률', budgetSummary.rate, '%', 'primary', `잔액 ${formatWonShort(budgetSummary.remaining)}`)}
+      </div>
+    </header>
 
     <section class="aims2-dashboard-shell">
       <section class="aims2-today-panel sc">
         <div class="sch dashboard-panel-head">
           <div>
             <div class="sct">오늘의 업무</div>
-            <p>사용자 역할·담당 업무·마감일 기준 우선순위</p>
+            <p>역할·담당 업무·마감일 기준 우선순위</p>
           </div>
           <span class="aims2-priority-badge">${todayTasks.length}건</span>
         </div>
@@ -64,25 +74,37 @@ export function renderDashboardSummary(targetSelector) {
         </div>
       </section>
 
-      <aside class="aims2-insight-panel sc">
+      <aside class="aims2-recent-panel sc">
         <div class="sch dashboard-panel-head">
           <div>
-            <div class="sct">AIMS Insight</div>
-            <p>AI가 추천하는 다음 액션</p>
+            <div class="sct">최근 활동</div>
+            <p>최근 등록·수정된 업무</p>
           </div>
+          <button class="btn btn-outline btn-sm" data-dashboard-route="tasks">칸반 보기</button>
         </div>
-        <div class="scb aims2-ai-stack">
-          ${renderAiRecommendation(kpiSummary, budgetSummary, taskSummary)}
-          ${renderAiActionButtons()}
+        <div class="scb">
+          ${recentTasks.length ? renderRecentTaskList(recentTasks) : renderEmptyMini('등록된 업무 없음', '업무관리에서 업무를 등록해 주세요.')}
         </div>
       </aside>
     </section>
 
-    <section class="dashboard-command-grid aims2-command-grid">
-      ${renderCommandCard({ icon: '📝', label: '미처리 업무', value: taskSummary.open, hint: '진행 필요', tone: taskSummary.open ? 'amber' : 'green' })}
-      ${renderCommandCard({ icon: '🔥', label: '지연 업무', value: taskSummary.delayed, hint: '기한 초과', tone: taskSummary.delayed ? 'danger' : 'green' })}
-      ${renderCommandCard({ icon: '📊', label: 'KPI 평균', value: `${kpiSummary.averageRate}%`, hint: `${kpiSummary.riskCount}개 점검`, tone: kpiSummary.riskCount ? 'amber' : 'green' })}
-      ${renderCommandCard({ icon: '💰', label: '예산 집행률', value: `${budgetSummary.rate}%`, hint: `잔액 ${formatWonShort(budgetSummary.remaining)}`, tone: 'purple' })}
+    <section class="aims2-ai-band sc">
+      <div class="sch dashboard-panel-head">
+        <div>
+          <div class="sct">AI Assistant</div>
+          <p>성과 데이터를 보고서·보도자료·카드뉴스로 빠르게 변환합니다.</p>
+        </div>
+        <span class="aims2-section-tag tone-ai">AI</span>
+      </div>
+      <div class="scb aims2-ai-band-body">
+        ${renderAiRecommendation(kpiSummary, budgetSummary, taskSummary)}
+        <div class="aims2-ai-grid">
+          ${renderAiAction('ti-file-text', '보고서 작성', '성과보고서 초안을 생성합니다.', 'ai-center')}
+          ${renderAiAction('ti-news', '보도자료 생성', '성과를 대외 메시지로 변환합니다.', 'ai-center')}
+          ${renderAiAction('ti-layout-grid', '카드뉴스 제작', 'SNS용 카드뉴스를 만듭니다.', 'cardnews')}
+          ${renderAiAction('ti-presentation', '회의자료 준비', '점검·보고용 자료를 구성합니다.', 'ai-center')}
+        </div>
+      </div>
     </section>
 
     <section class="aims2-status-grid">
@@ -90,14 +112,15 @@ export function renderDashboardSummary(targetSelector) {
         <div class="sch dashboard-panel-head">
           <div>
             <div class="sct">우리 팀 현황</div>
-            <p>${escapeHtml(teamSummary.label)} 기준 업무·성과·예산 요약</p>
+            <p>${escapeHtml(teamSummary.label)} · 담당 단위과제 기준</p>
           </div>
+          <span class="aims2-section-tag">Team</span>
         </div>
         <div class="scb">
           <div class="aims2-team-grid">
-            ${renderTeamMetric('실적 점검', `${teamSummary.kpiAverage}%`, 'KPI 평균 달성률')}
-            ${renderTeamMetric('업무 진행', `${teamSummary.activeTasks}건`, '진행·검토 중 업무')}
-            ${renderTeamMetric('예산 집행', `${teamSummary.budgetRate}%`, '담당 단위 집행률')}
+            ${renderTeamMetric('KPI 평균 달성률', teamSummary.kpiAverage, '%', '담당 단위 기준', teamSummary.kpiAverage, toneByRate(teamSummary.kpiAverage))}
+            ${renderTeamMetric('예산 집행률', teamSummary.budgetRate, '%', '담당 단위 집행', teamSummary.budgetRate, toneByRate(teamSummary.budgetRate))}
+            ${renderTeamMetric('진행 중 업무', teamSummary.activeTasks, '건', '진행·검토 중', null, 'primary')}
           </div>
           ${renderTeamUnitCards(teamSummary.units)}
         </div>
@@ -107,9 +130,9 @@ export function renderDashboardSummary(targetSelector) {
         <div class="sch dashboard-panel-head">
           <div>
             <div class="sct">사업단 전체 현황</div>
-            <p>RISE 단위과제별 위험도와 운영 상태</p>
+            <p>RISE 단위과제별 운영 상태</p>
           </div>
-          <button class="btn btn-outline btn-sm" data-dashboard-route="reports">보고자료 보기</button>
+          <span class="aims2-section-tag">Organization</span>
         </div>
         <div class="scb aims2-org-list">
           ${orgHealth.map(renderOrgHealthRow).join('')}
@@ -117,57 +140,61 @@ export function renderDashboardSummary(targetSelector) {
       </section>
     </section>
 
+    <section class="sc dashboard-panel">
+      <div class="sch dashboard-panel-head">
+        <div>
+          <div class="sct">단위과제 KPI 달성현황</div>
+          <p>단위과제별 핵심성과지표 진척을 시각적으로 확인합니다.</p>
+        </div>
+        <span class="aims2-section-tag">KPI</span>
+      </div>
+      <div class="scb">
+        <div class="unit-tabs" id="unitTabs">
+          ${UNIT_TASKS.map((unit, index) => `
+            <button class="unit-tab ${index === 0 ? 'on' : ''}" data-unit-id="${unit.id}">
+              ${unit.name}
+            </button>
+          `).join('')}
+        </div>
+        <div id="selectedUnitKpi"></div>
+      </div>
+    </section>
+
     <section class="aims2-workflow sc">
       <div class="sch dashboard-panel-head">
         <div>
           <div class="sct">성과 → 보고·확산 Workflow</div>
-          <p>성과 데이터를 보고서·보도자료·카드뉴스로 바로 연결합니다.</p>
+          <p>성과 데이터를 보고서·보도자료·카드뉴스로 연결합니다.</p>
         </div>
+        <span class="aims2-section-tag">Workflow</span>
       </div>
       <div class="scb aims2-workflow-grid">
-        ${renderWorkflowCard('성과 입력', '실적과 증빙을 정리합니다.', 'kpi-1-1', 'ti-chart-dots')}
-        ${renderWorkflowCard('보도자료 작성', '성과를 대외 메시지로 변환합니다.', 'ai-center', 'ti-news')}
-        ${renderWorkflowCard('카드뉴스 제작', '보도자료를 SNS 카드뉴스로 압축합니다.', 'cardnews', 'ti-layout-grid')}
-        ${renderWorkflowCard('성과보고서 반영', '월간·연차 보고 자료로 연결합니다.', 'reports', 'ti-file-analytics')}
+        ${renderWorkflowCard('성과 입력', '실적과 증빙을 정리합니다.', 'kpi', 'ti-chart-dots', 1)}
+        ${renderWorkflowCard('보도자료 작성', '성과를 대외 메시지로 변환합니다.', 'ai-center', 'ti-news', 2)}
+        ${renderWorkflowCard('카드뉴스 제작', '보도자료를 SNS 카드뉴스로 압축합니다.', 'cardnews', 'ti-layout-grid', 3)}
+        ${renderWorkflowCard('성과보고서 반영', '월간·연차 보고 자료로 연결합니다.', 'reports', 'ti-file-analytics', 4)}
       </div>
     </section>
 
-    <section class="dashboard-layout-v4 aims2-detail-layout">
-      <div class="dashboard-main-stack">
-        <section class="sc dashboard-panel">
-          <div class="sch dashboard-panel-head">
-            <div>
-              <div class="sct">단위과제 KPI 달성현황</div>
-              <p>단위과제별 핵심성과지표와 위험지표를 확인합니다.</p>
-            </div>
-          </div>
-          <div class="scb">
-            <div class="unit-tabs" id="unitTabs">
-              ${UNIT_TASKS.map((unit, index) => `
-                <button class="unit-tab ${index === 0 ? 'on' : ''}" data-unit-id="${unit.id}">
-                  ${unit.name}
-                </button>
-              `).join('')}
-            </div>
-            <div id="selectedUnitKpi"></div>
-          </div>
-        </section>
+    <section class="aims2-budget sc">
+      <div class="sch dashboard-panel-head">
+        <div>
+          <div class="sct">예산 집행 현황</div>
+          <p>RISE 사업비 편성·집행 · 단위과제별 집행률</p>
+        </div>
+        <span class="aims2-section-tag">Budget</span>
       </div>
-
-      <aside class="dashboard-side-stack">
-        <section class="sc dashboard-panel">
-          <div class="sch dashboard-panel-head">
-            <div>
-              <div class="sct">최근 업무</div>
-              <p>최근 등록·수정된 업무</p>
-            </div>
-            <button class="btn btn-outline btn-sm" data-dashboard-route="tasks">칸반 보기</button>
-          </div>
-          <div class="scb">
-            ${recentTasks.length ? renderRecentTaskList(recentTasks) : renderEmptyMini('등록된 업무 없음', '업무관리에서 업무를 등록해 주세요.')}
-          </div>
-        </section>
-      </aside>
+      <div class="scb">
+        <div class="aims2-budget-totals">
+          ${renderBudgetTotal('편성액', formatWonShort(budgetSummary.allocated))}
+          ${renderBudgetTotal('집행액', formatWonShort(budgetSummary.executed))}
+          ${renderBudgetTotal('잔액', formatWonShort(budgetSummary.remaining))}
+          ${renderBudgetTotal('집행률', `${budgetSummary.rate}%`, true)}
+        </div>
+        <div class="aims2-budget-list">
+          ${budgetRows.map(renderBudgetRow).join('')}
+        </div>
+      </div>
     </section>
   `;
 
@@ -223,9 +250,9 @@ function renderSelectedUnitKpi(unitTaskId) {
   const kpis = KPI_DEFINITIONS[unitTaskId] || [];
   if (!target || !unit) return;
 
-  const riskItems = kpis
-    .map(kpi => ({ ...kpi, rate: calculateAchievementRate(kpi) }))
-    .filter(kpi => kpi.rate === null || kpi.rate < 80);
+  const ratedKpis = kpis.map(kpi => ({ ...kpi, rate: calculateAchievementRate(kpi) }));
+  const riskCount = ratedKpis.filter(kpi => kpi.rate === null || kpi.rate < 80).length;
+  const goodCount = ratedKpis.filter(kpi => kpi.rate !== null && kpi.rate >= 80).length;
   const averageRate = getAverageRate(kpis);
 
   target.innerHTML = `
@@ -240,18 +267,34 @@ function renderSelectedUnitKpi(unitTaskId) {
       </div>
       <button class="btn btn-primary" data-kpi-detail-unit="${unitTaskId}">상세관리</button>
     </div>
-    <div class="dashboard-kpi-table-wrap">
-      <table class="tbl kpi-table">
-        <thead>
-          <tr><th>KPI</th><th>구분</th><th>목표</th><th>실적</th><th>달성률</th></tr>
-        </thead>
-        <tbody>${kpis.map(renderKpiRow).join('')}</tbody>
-      </table>
+    <div class="kpi-viz-summary">
+      <span class="kpi-viz-chip tone-green">달성 ${goodCount}</span>
+      <span class="kpi-viz-chip tone-amber">점검 ${riskCount}</span>
+      <span class="kpi-viz-chip tone-muted">전체 ${ratedKpis.length}</span>
     </div>
-    <div class="risk-box dashboard-risk-box">
-      <div class="risk-title">위험·점검 KPI</div>
-      ${riskItems.length ? riskItems.map(renderRiskItem).join('') : '<div class="risk-empty">현재 점검 대상 KPI가 없습니다.</div>'}
+    <div class="kpi-progress-list">
+      ${ratedKpis.length ? ratedKpis.map(renderKpiProgressItem).join('') : '<div class="risk-empty">등록된 KPI가 없습니다.</div>'}
     </div>
+  `;
+}
+
+function renderKpiProgressItem(kpi) {
+  const isPending = kpi.rate === null;
+  const tone = isPending ? 'pending' : kpi.rate >= 80 ? 'green' : kpi.rate >= 50 ? 'amber' : 'danger';
+  const width = isPending ? 0 : Math.min(kpi.rate, 100);
+  const rateText = isPending ? '입력대기' : `${kpi.rate}%`;
+  return `
+    <article class="kpi-progress-item">
+      <div class="kpi-progress-head">
+        <div class="kpi-progress-name">
+          <span class="badge ${kpi.type === '필수' ? 'badge-required' : 'badge-optional'}">${kpi.type}</span>
+          <strong>${kpi.name}</strong>
+        </div>
+        <span class="kpi-progress-rate tone-${tone}">${rateText}</span>
+      </div>
+      <div class="kpi-progress-track"><span class="tone-${tone}" style="width:${width}%"></span></div>
+      <div class="kpi-progress-meta">목표 ${kpi.target}${kpi.unit} · 실적 ${kpi.actual}${kpi.unit}</div>
+    </article>
   `;
 }
 
@@ -290,18 +333,64 @@ function renderAiRecommendation(kpiSummary, budgetSummary, taskSummary) {
   `;
 }
 
-function renderAiActionButtons() {
+function renderAiAction(icon, title, description, route) {
   return `
-    <div class="aims2-ai-actions">
-      <button class="btn btn-outline" data-dashboard-route="ai-center">보고서 작성</button>
-      <button class="btn btn-outline" data-dashboard-route="cardnews">카드뉴스 제작</button>
-      <button class="btn btn-outline" data-dashboard-route="ai-center">보도자료 생성</button>
+    <button type="button" class="aims2-ai-action" data-dashboard-route="${route}">
+      <span class="aims2-ai-action-icon"><i class="ti ${icon}"></i></span>
+      <span class="aims2-ai-action-body">
+        <strong>${title}</strong>
+        <span>${description}</span>
+      </span>
+      <i class="ti ti-arrow-right aims2-ai-action-go"></i>
+    </button>
+  `;
+}
+
+function renderHeroStat(label, value, suffix, tone, hint) {
+  return `
+    <div class="dash-hero-stat tone-${tone}">
+      <span class="dash-hero-stat-label">${label}</span>
+      <strong>${value}<i>${suffix}</i></strong>
+      <em>${hint}</em>
     </div>
   `;
 }
 
-function renderTeamMetric(label, value, hint) {
-  return `<div class="aims2-team-metric"><span>${label}</span><strong>${value}</strong><em>${hint}</em></div>`;
+function renderHeroGauge(label, rate) {
+  const value = Math.max(0, Math.min(Number(rate) || 0, 100));
+  const tone = toneByRate(value);
+  return `
+    <div class="dash-hero-gauge tone-${tone}" style="--val:${value}">
+      <div class="dash-hero-gauge-ring"><span>${value}<i>%</i></span></div>
+      <div class="dash-hero-gauge-meta">
+        <strong>${label}</strong>
+        <em>전체 단위과제 평균 달성률</em>
+      </div>
+    </div>
+  `;
+}
+
+function formatKoreanDate(date = new Date()) {
+  const days = ['일', '월', '화', '수', '목', '금', '토'];
+  return `${date.getFullYear()}년 ${date.getMonth() + 1}월 ${date.getDate()}일 (${days[date.getDay()]})`;
+}
+
+function renderTeamMetric(label, value, suffix, hint, pct, tone) {
+  const bar = pct === null ? '' : `
+    <div class="aims2-team-bar"><span class="tone-${tone}" style="width:${Math.min(Number(pct) || 0, 100)}%"></span></div>`;
+  return `
+    <div class="aims2-team-metric tone-${tone}">
+      <span class="aims2-team-metric-label">${label}</span>
+      <strong>${value}<i>${suffix}</i></strong>
+      ${bar}
+      <em>${hint}</em>
+    </div>
+  `;
+}
+
+function toneByRate(rate) {
+  const value = Number(rate) || 0;
+  return value >= 85 ? 'green' : value >= 70 ? 'amber' : 'danger';
 }
 
 function renderTeamUnitCards(units) {
@@ -329,47 +418,40 @@ function renderOrgHealthRow(item) {
   `;
 }
 
-function renderWorkflowCard(title, description, route, icon) {
+function renderBudgetTotal(label, value, emphasis = false) {
+  return `<div class="aims2-budget-total ${emphasis ? 'is-rate' : ''}"><span>${label}</span><strong>${value}</strong></div>`;
+}
+
+function renderBudgetRow(row) {
+  const rate = row.allocated ? Math.round((row.executed / row.allocated) * 1000) / 10 : 0;
+  const tone = rate >= 80 ? 'green' : rate >= 50 ? 'amber' : 'danger';
+  const width = Math.min(rate, 100);
+  return `
+    <article class="aims2-budget-row">
+      <div class="aims2-budget-row-head">
+        <strong>${row.label}</strong>
+        <span class="aims2-budget-rate tone-${tone}">${rate}%</span>
+      </div>
+      <div class="aims2-budget-bar"><span class="tone-${tone}" style="width:${width}%"></span></div>
+      <div class="aims2-budget-figures">
+        <span>집행 ${formatWonShort(row.executed)}</span>
+        <span>편성 ${formatWonShort(row.allocated)}</span>
+        <span>잔액 ${formatWonShort(row.remaining)}</span>
+      </div>
+    </article>
+  `;
+}
+
+function renderWorkflowCard(title, description, route, icon, step) {
   return `
     <button type="button" class="aims2-workflow-card" data-dashboard-route="${route}">
-      <i class="ti ${icon}"></i>
+      <div class="aims2-workflow-top">
+        <i class="ti ${icon}"></i>
+        <span class="aims2-workflow-step">STEP ${step}</span>
+      </div>
       <strong>${title}</strong>
       <span>${description}</span>
     </button>
-  `;
-}
-
-function renderKpiRow(kpi) {
-  const rate = calculateAchievementRate(kpi);
-  const displayRate = rate === null ? '입력대기' : `${rate}%`;
-  const rateClass = rate === null ? 'pending' : rate < 80 ? 'risk' : 'good';
-  return `
-    <tr>
-      <td><strong>${kpi.name}</strong></td>
-      <td><span class="badge ${kpi.type === '필수' ? 'badge-required' : 'badge-optional'}">${kpi.type}</span></td>
-      <td>${kpi.target}${kpi.unit}</td>
-      <td>${kpi.actual}${kpi.unit}</td>
-      <td><span class="dashboard-rate-chip ${rateClass}">${displayRate}</span></td>
-    </tr>
-  `;
-}
-
-function renderRiskItem(kpi) {
-  const rate = kpi.rate === null ? '입력대기' : `${kpi.rate}%`;
-  const message = kpi.rate === null ? '목표 또는 실적 입력 필요' : '목표 대비 달성률 80% 미만';
-  return `<div class="risk-item"><span>⚠ ${kpi.name}</span><strong>${rate}</strong><em>${message}</em></div>`;
-}
-
-function renderCommandCard({ icon, label, value, hint, tone }) {
-  return `
-    <article class="dashboard-command-card tone-${tone}">
-      <div class="dashboard-command-icon">${icon}</div>
-      <div>
-        <div class="dashboard-command-label">${label}</div>
-        <div class="dashboard-command-value">${value}</div>
-        <div class="dashboard-command-hint">${hint}</div>
-      </div>
-    </article>
   `;
 }
 
