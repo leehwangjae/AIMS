@@ -9,6 +9,7 @@ import { renderPlanDraftView } from './plan-draft-view.js';
 import { renderBudgetView } from './budget-view.js';
 import { renderTaskView } from './task-view.js';
 import { renderCardnewsView } from './cardnews-view.js';
+import { UNIT_TASKS } from '../data/kpi-data.js';
 
 const KPI_ROUTE_MAP = {
   'kpi-1-1': '1-1',
@@ -27,6 +28,16 @@ export function renderRoute(routeId, targetSelector = '#contentContainer') {
   if (routeId === 'dashboard') {
     target.innerHTML = '<div id="dashboardSummary"></div>';
     renderDashboardSummary('#dashboardSummary');
+    return;
+  }
+
+  if (routeId === 'business') {
+    renderBusinessHub(targetSelector);
+    return;
+  }
+
+  if (routeId === 'kpi') {
+    renderKpiHub(targetSelector);
     return;
   }
 
@@ -126,6 +137,50 @@ export function renderRoute(routeId, targetSelector = '#contentContainer') {
       <div class="scb">선택한 메뉴를 찾을 수 없습니다.</div>
     </section>
   `;
+}
+
+function renderUnitHub(targetSelector, { activeUnit, bodyId, render }) {
+  const target = document.querySelector(targetSelector);
+  if (!target) return;
+
+  const unitId = activeUnit || UNIT_TASKS[0]?.id || '1-1';
+
+  target.innerHTML = `
+    <section class="sc hub-tabbar">
+      <div class="scb">
+        <div class="unit-tabs" data-hub-tabs>
+          ${UNIT_TASKS.map(unit => `
+            <button class="unit-tab ${unit.id === unitId ? 'on' : ''}" data-hub-unit="${unit.id}" type="button">${unit.name}</button>
+          `).join('')}
+        </div>
+      </div>
+    </section>
+    <div id="${bodyId}"></div>
+  `;
+
+  render(`#${bodyId}`, unitId);
+
+  target.querySelector('[data-hub-tabs]')?.addEventListener('click', event => {
+    const button = event.target.closest('[data-hub-unit]');
+    if (!button) return;
+    renderUnitHub(targetSelector, { activeUnit: button.dataset.hubUnit, bodyId, render });
+  });
+}
+
+function renderBusinessHub(targetSelector, activeUnit) {
+  renderUnitHub(targetSelector, {
+    activeUnit,
+    bodyId: 'businessHubBody',
+    render: (bodySelector, unitId) => renderProgramView(bodySelector, `business-${unitId}`)
+  });
+}
+
+function renderKpiHub(targetSelector, activeUnit) {
+  renderUnitHub(targetSelector, {
+    activeUnit,
+    bodyId: 'kpiHubBody',
+    render: (bodySelector, unitId) => renderKpiDetailView(bodySelector, unitId)
+  });
 }
 
 export function bindMenuRouting(menuSelector = '#menuContainer', contentSelector = '#contentContainer') {

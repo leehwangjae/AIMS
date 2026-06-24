@@ -16,6 +16,7 @@ export const MENU_PERMISSIONS = {
   default: ALL_ROLES,
   dashboard: ALL_ROLES,
 
+  business: ALL_ROLES,
   'business-1-1': ALL_ROLES,
   'business-1-2': ALL_ROLES,
   'business-1-3': ALL_ROLES,
@@ -23,10 +24,12 @@ export const MENU_PERMISSIONS = {
 
   tasks: ALL_ROLES,
 
+  kpi: ALL_ROLES,
   'kpi-1-1': ALL_ROLES,
   'kpi-1-2': ALL_ROLES,
   'kpi-1-3': ALL_ROLES,
   'kpi-2-1-ai': ALL_ROLES,
+  cardnews: ALL_ROLES,
 
   budgets: ALL_ROLES,
   files: ALL_ROLES,
