@@ -1,8 +1,15 @@
 function readRuntimeConfig() {
   return {
-    url: window.AIMS_SUPABASE_URL || '',
+    url: normalizeSupabaseUrl(window.AIMS_SUPABASE_URL || ''),
     anonKey: window.AIMS_SUPABASE_ANON_KEY || ''
   };
+}
+
+function normalizeSupabaseUrl(url) {
+  return String(url || '')
+    .trim()
+    .replace(/\/+$/, '')
+    .replace(/\/rest\/v1$/i, '');
 }
 
 let clientPromise = null;
