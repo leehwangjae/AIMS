@@ -12,7 +12,7 @@
 .budget-dashboard-v2 > .budget-toolbar-v2 {
   align-items: flex-start !important;
   gap: 14px !important;
-  padding-bottom: 6px;
+  padding-bottom: 12px;
   border-bottom: 1px solid #edf0f4;
 }
 
@@ -44,10 +44,15 @@
   border-radius: 12px;
 }
 
+/* 재원구분 탭은 하단 이월/당해 현황과 중복되므로 숨김 */
+.budget-fund-tabs {
+  display: none !important;
+}
+
 /* 1-1 선택 시 표시되는 바이오/반도체/물류 하위 분야 */
 .budget-dashboard-v2 > .budget-filter-group:not(.budget-fund-tabs) {
   position: relative;
-  margin-top: 14px;
+  margin-top: 16px;
   padding: 34px 14px 14px;
   border: 1px solid #e8eef8;
   border-radius: 14px;
@@ -55,7 +60,7 @@
 }
 
 .budget-dashboard-v2 > .budget-filter-group:not(.budget-fund-tabs)::before {
-  content: '1-1 세부분야 선택 · 1-1 전체는 바이오·반도체·물류 분야 예산의 합산값입니다';
+  content: '1-1 세부분야 선택 · 1-1 전체는 바이오·반도체·물류 분야 예산을 합산한 현황입니다';
   position: absolute;
   top: 12px;
   left: 14px;
@@ -72,23 +77,6 @@
 .budget-dashboard-v2 > .budget-filter-group:not(.budget-fund-tabs) .budget-filter-btn.active:first-child {
   background: #2563eb !important;
   color: #fff !important;
-}
-
-/* 재원구분 탭 */
-.budget-fund-tabs {
-  position: relative;
-  flex: 0 0 auto;
-  padding-top: 24px;
-}
-
-.budget-fund-tabs::before {
-  content: '재원구분';
-  position: absolute;
-  top: 0;
-  left: 0;
-  font-size: 12px;
-  font-weight: 800;
-  color: #64748b;
 }
 
 /* KPI 카드: 편성·집행·잔액 중심으로 안정화 */
@@ -275,10 +263,6 @@
 @media (max-width: 900px) {
   .budget-dashboard-v2 > .budget-toolbar-v2 {
     flex-direction: column !important;
-  }
-
-  .budget-fund-tabs {
-    width: 100%;
   }
 
   .budget-dashboard-v2 > .budget-toolbar-v2 .budget-filter-group:first-child {
