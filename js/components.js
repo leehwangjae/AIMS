@@ -38,14 +38,14 @@ export function createTable({ columns = [], rows = [] }) {
     <table class="tbl">
       <thead>
         <tr>
-          ${columns.map(column => `<th>${column.label}</th>`).join('')}
+          ${columns.map(column => `<th${column.align ? ` style="text-align:${column.align};"` : ''}>${column.label}</th>`).join('')}
         </tr>
       </thead>
 
       <tbody>
         ${rows.map(row => `
           <tr>
-            ${columns.map(column => `<td>${row[column.key] ?? '-'}</td>`).join('')}
+            ${columns.map(column => `<td${column.align ? ` style="text-align:${column.align};"` : ''}>${row[column.key] ?? '-'}</td>`).join('')}
           </tr>
         `).join('')}
       </tbody>
