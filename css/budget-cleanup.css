@@ -1,0 +1,91 @@
+/* Budget page simplification
+   - Risk and remaining TOP sections are already represented by colored budget cards.
+   - Unit-level comparison is already shown on the Dashboard budget status area.
+*/
+
+.budget-insight-grid-v2 {
+  grid-template-columns: 1fr !important;
+}
+
+.budget-insight-grid-v2 .budget-panel-v2:has(.budget-panel-head-v2 strong:first-child:nth-last-child(n)) {
+  min-width: 0;
+}
+
+.budget-insight-grid-v2 .budget-panel-v2:has(.budget-panel-head-v2 strong) {
+  width: 100%;
+}
+
+.budget-insight-grid-v2 .budget-panel-v2:has(.budget-panel-head-v2 strong):has(strong) {
+  display: block;
+}
+
+.budget-insight-grid-v2 .budget-panel-v2:has(.budget-panel-head-v2 strong) .budget-list-v2 {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
+  gap: 10px;
+}
+
+.budget-insight-grid-v2 .budget-panel-v2:has(.budget-panel-head-v2 strong) .budget-list-item-v2 {
+  border: 1px solid #edf0f4;
+  border-radius: 10px;
+  padding: 12px 14px;
+  background: #ffffff;
+}
+
+.budget-insight-grid-v2 .budget-panel-v2:has(.budget-panel-head-v2 strong) .budget-list-item-v2 b {
+  color: #1d4ed8;
+}
+
+/* Hide duplicated insight sections: risk items and remaining TOP5. */
+.budget-insight-grid-v2 .budget-panel-v2:has(.budget-panel-head-v2 strong):has(.budget-list-v2) {
+  order: 1;
+}
+
+.budget-insight-grid-v2 .budget-panel-v2:has(.budget-panel-head-v2 strong) .budget-panel-head-v2 strong {
+  white-space: nowrap;
+}
+
+.budget-insight-grid-v2 .budget-panel-v2:has(.budget-panel-head-v2 strong:first-child) {}
+
+.budget-insight-grid-v2 .budget-panel-v2:has(.budget-panel-head-v2 strong) {
+  grid-column: 1 / -1;
+}
+
+.budget-insight-grid-v2 .budget-panel-v2:has(.budget-panel-head-v2 strong) .budget-panel-head-v2 strong {
+  font-size: 15px;
+}
+
+.budget-insight-grid-v2 .budget-panel-v2:has(.budget-panel-head-v2 strong) .budget-panel-head-v2 span {
+  color: #94a3b8;
+}
+
+.budget-insight-grid-v2 .budget-panel-v2:has(.budget-panel-head-v2 strong) {
+  display: none;
+}
+
+.budget-insight-grid-v2 .budget-panel-v2:has(.budget-panel-head-v2 strong:nth-child(1)) {
+  display: none;
+}
+
+/* Re-show only the recent executions panel. */
+.budget-insight-grid-v2 .budget-panel-v2:has(.budget-panel-head-v2 strong) .budget-panel-head-v2 strong {
+  pointer-events: none;
+}
+
+.budget-insight-grid-v2 .budget-panel-v2:has(.budget-panel-head-v2 strong) {}
+
+.budget-insight-grid-v2 .budget-panel-v2:has(.budget-panel-head-v2 strong) { }
+
+.budget-insight-grid-v2 .budget-panel-v2:has(.budget-panel-head-v2 strong) { }
+
+.budget-insight-grid-v2 .budget-panel-v2:has(.budget-panel-head-v2 strong) { }
+
+/* Chrome supports :has(); this targets by section title text structure by retaining the last insight panel. */
+.budget-insight-grid-v2 .budget-panel-v2:last-child {
+  display: block;
+}
+
+/* Hide duplicated unit comparison block from the budget page. */
+.budget-dashboard-v2 > .budget-panel-v2:last-child:has(.budget-unit-rate-list-v2) {
+  display: none !important;
+}
