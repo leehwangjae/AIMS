@@ -157,6 +157,121 @@
   background: #f8fbff;
 }
 
+/* 편성 항목별 상세현황 테이블 가독성 개선 */
+#budgetAllocationTableContainer {
+  width: 100%;
+  overflow-x: auto;
+  overflow-y: visible;
+  padding-bottom: 6px;
+}
+
+#budgetAllocationTableContainer table {
+  min-width: 1260px;
+  width: 100%;
+  table-layout: fixed;
+  border-collapse: separate;
+  border-spacing: 0;
+}
+
+#budgetAllocationTableContainer thead th {
+  position: sticky;
+  top: 0;
+  z-index: 1;
+  background: #f8fafc;
+  color: #475569;
+  font-size: 12px;
+  font-weight: 800;
+  text-align: left;
+  white-space: nowrap;
+  border-bottom: 1px solid #e8eaed;
+}
+
+#budgetAllocationTableContainer th,
+#budgetAllocationTableContainer td {
+  padding: 13px 12px;
+  vertical-align: middle;
+  line-height: 1.45;
+  font-size: 13px;
+  color: #1e293b;
+  border-bottom: 1px solid #eef0f2;
+  white-space: normal;
+  word-break: keep-all;
+  overflow-wrap: anywhere;
+}
+
+#budgetAllocationTableContainer tbody tr:hover td {
+  background: #f8fbff;
+}
+
+#budgetAllocationTableContainer th:nth-child(1),
+#budgetAllocationTableContainer td:nth-child(1) { width: 86px; }
+
+#budgetAllocationTableContainer th:nth-child(2),
+#budgetAllocationTableContainer td:nth-child(2) { width: 105px; }
+
+#budgetAllocationTableContainer th:nth-child(3),
+#budgetAllocationTableContainer td:nth-child(3) { width: 145px; }
+
+#budgetAllocationTableContainer th:nth-child(4),
+#budgetAllocationTableContainer td:nth-child(4) { width: 280px; }
+
+#budgetAllocationTableContainer th:nth-child(5),
+#budgetAllocationTableContainer td:nth-child(5) { width: 82px; text-align: center; }
+
+#budgetAllocationTableContainer th:nth-child(6),
+#budgetAllocationTableContainer td:nth-child(6),
+#budgetAllocationTableContainer th:nth-child(7),
+#budgetAllocationTableContainer td:nth-child(7),
+#budgetAllocationTableContainer th:nth-child(8),
+#budgetAllocationTableContainer td:nth-child(8) {
+  width: 122px;
+  text-align: right;
+  white-space: nowrap;
+  word-break: normal;
+  overflow-wrap: normal;
+  font-variant-numeric: tabular-nums;
+}
+
+#budgetAllocationTableContainer th:nth-child(9),
+#budgetAllocationTableContainer td:nth-child(9) {
+  width: 76px;
+  text-align: center;
+  white-space: nowrap;
+  font-weight: 800;
+}
+
+#budgetAllocationTableContainer th:nth-child(10),
+#budgetAllocationTableContainer td:nth-child(10) {
+  width: 150px;
+  max-width: 150px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+#budgetAllocationTableContainer th:nth-child(11),
+#budgetAllocationTableContainer td:nth-child(11) {
+  width: 84px;
+  text-align: center;
+  white-space: nowrap;
+}
+
+#budgetAllocationTableContainer td:nth-child(3),
+#budgetAllocationTableContainer td:nth-child(4) {
+  font-weight: 650;
+}
+
+#budgetAllocationTableContainer td:nth-child(4) {
+  color: #334155;
+}
+
+#budgetAllocationTableContainer td:nth-child(11) .btn,
+#budgetAllocationTableContainer td:nth-child(11) button {
+  min-height: 32px;
+  padding: 6px 10px !important;
+  border-radius: 8px;
+  font-size: 12px;
+}
+
 @media (max-width: 900px) {
   .budget-dashboard-v2 > .budget-toolbar-v2 {
     flex-direction: column !important;
@@ -168,5 +283,9 @@
 
   .budget-dashboard-v2 > .budget-toolbar-v2 .budget-filter-group:first-child {
     grid-template-columns: 1fr;
+  }
+
+  #budgetAllocationTableContainer table {
+    min-width: 1180px;
   }
 }
