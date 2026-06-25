@@ -1,91 +1,172 @@
-/* Budget page simplification
-   - Risk and remaining TOP sections are already represented by colored budget cards.
-   - Unit-level comparison is already shown on the Dashboard budget status area.
+/* Budget page cleanup and hierarchy clarification
+   1-1 전략산업 예산은 바이오·반도체·물류·미분류 세부분야의 합산값이다.
+   This stylesheet keeps the existing data logic and clarifies the visual hierarchy.
 */
 
-.budget-insight-grid-v2 {
-  grid-template-columns: 1fr !important;
+/* 전체 화면 폭 안정화 */
+.budget-dashboard-v2 {
+  overflow: hidden;
 }
 
-.budget-insight-grid-v2 .budget-panel-v2:has(.budget-panel-head-v2 strong:first-child:nth-last-child(n)) {
-  min-width: 0;
+/* 단위과제 탭: 상위 예산 단위 */
+.budget-dashboard-v2 > .budget-toolbar-v2 {
+  align-items: flex-start !important;
+  gap: 14px !important;
+  padding-bottom: 6px;
+  border-bottom: 1px solid #edf0f4;
 }
 
-.budget-insight-grid-v2 .budget-panel-v2:has(.budget-panel-head-v2 strong) {
+.budget-dashboard-v2 > .budget-toolbar-v2 .budget-filter-group:first-child {
+  position: relative;
+  display: grid !important;
+  grid-template-columns: repeat(auto-fit, minmax(210px, 1fr));
+  gap: 8px !important;
   width: 100%;
+  padding-top: 24px;
 }
 
-.budget-insight-grid-v2 .budget-panel-v2:has(.budget-panel-head-v2 strong):has(strong) {
-  display: block;
+.budget-dashboard-v2 > .budget-toolbar-v2 .budget-filter-group:first-child::before {
+  content: '단위과제 선택';
+  position: absolute;
+  top: 0;
+  left: 0;
+  font-size: 12px;
+  font-weight: 800;
+  color: #64748b;
+  letter-spacing: -0.01em;
 }
 
-.budget-insight-grid-v2 .budget-panel-v2:has(.budget-panel-head-v2 strong) .budget-list-v2 {
+.budget-dashboard-v2 > .budget-toolbar-v2 .budget-filter-group:first-child .budget-filter-btn {
+  min-height: 48px;
+  justify-content: center;
+  line-height: 1.25;
+  white-space: normal;
+  border-radius: 12px;
+}
+
+/* 1-1 선택 시 표시되는 바이오/반도체/물류 하위 분야 */
+.budget-dashboard-v2 > .budget-filter-group:not(.budget-fund-tabs) {
+  position: relative;
+  margin-top: 14px;
+  padding: 34px 14px 14px;
+  border: 1px solid #e8eef8;
+  border-radius: 14px;
+  background: #f8fbff;
+}
+
+.budget-dashboard-v2 > .budget-filter-group:not(.budget-fund-tabs)::before {
+  content: '1-1 세부분야 선택 · 1-1 전체는 바이오·반도체·물류 분야 예산의 합산값입니다';
+  position: absolute;
+  top: 12px;
+  left: 14px;
+  font-size: 12px;
+  font-weight: 800;
+  color: #2563eb;
+  letter-spacing: -0.01em;
+}
+
+.budget-dashboard-v2 > .budget-filter-group:not(.budget-fund-tabs) .budget-filter-btn {
+  background: #fff;
+}
+
+.budget-dashboard-v2 > .budget-filter-group:not(.budget-fund-tabs) .budget-filter-btn.active:first-child {
+  background: #2563eb !important;
+  color: #fff !important;
+}
+
+/* 재원구분 탭 */
+.budget-fund-tabs {
+  position: relative;
+  flex: 0 0 auto;
+  padding-top: 24px;
+}
+
+.budget-fund-tabs::before {
+  content: '재원구분';
+  position: absolute;
+  top: 0;
+  left: 0;
+  font-size: 12px;
+  font-weight: 800;
+  color: #64748b;
+}
+
+/* KPI 카드: 편성·집행·잔액 중심으로 안정화 */
+.budget-kpi-grid-v2 {
+  display: grid !important;
+  grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)) !important;
+  gap: 12px !important;
+}
+
+.budget-kpi-card-v2 {
+  min-width: 0 !important;
+  overflow: hidden;
+}
+
+.budget-kpi-value-v2 {
+  max-width: 100%;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-size: clamp(20px, 2.2vw, 28px) !important;
+  letter-spacing: -0.04em;
+}
+
+/* 최근 집행내역은 상단 요약 직후 단독 섹션으로 보여줌 */
+.budget-insight-grid-v2 {
+  display: grid !important;
+  grid-template-columns: 1fr !important;
+  gap: 14px !important;
+}
+
+.budget-insight-grid-v2 .budget-panel-v2 {
+  grid-column: 1 / -1;
+}
+
+.budget-insight-grid-v2 .budget-list-v2 {
   display: grid;
   grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
   gap: 10px;
 }
 
-.budget-insight-grid-v2 .budget-panel-v2:has(.budget-panel-head-v2 strong) .budget-list-item-v2 {
+.budget-insight-grid-v2 .budget-list-item-v2 {
   border: 1px solid #edf0f4;
   border-radius: 10px;
   padding: 12px 14px;
-  background: #ffffff;
+  background: #fff;
 }
 
-.budget-insight-grid-v2 .budget-panel-v2:has(.budget-panel-head-v2 strong) .budget-list-item-v2 b {
-  color: #1d4ed8;
-}
-
-/* Hide duplicated insight sections: risk items and remaining TOP5. */
-.budget-insight-grid-v2 .budget-panel-v2:has(.budget-panel-head-v2 strong):has(.budget-list-v2) {
-  order: 1;
-}
-
-.budget-insight-grid-v2 .budget-panel-v2:has(.budget-panel-head-v2 strong) .budget-panel-head-v2 strong {
-  white-space: nowrap;
-}
-
-.budget-insight-grid-v2 .budget-panel-v2:has(.budget-panel-head-v2 strong:first-child) {}
-
-.budget-insight-grid-v2 .budget-panel-v2:has(.budget-panel-head-v2 strong) {
-  grid-column: 1 / -1;
-}
-
-.budget-insight-grid-v2 .budget-panel-v2:has(.budget-panel-head-v2 strong) .budget-panel-head-v2 strong {
-  font-size: 15px;
-}
-
-.budget-insight-grid-v2 .budget-panel-v2:has(.budget-panel-head-v2 strong) .budget-panel-head-v2 span {
-  color: #94a3b8;
-}
-
-.budget-insight-grid-v2 .budget-panel-v2:has(.budget-panel-head-v2 strong) {
-  display: none;
-}
-
-.budget-insight-grid-v2 .budget-panel-v2:has(.budget-panel-head-v2 strong:nth-child(1)) {
-  display: none;
-}
-
-/* Re-show only the recent executions panel. */
-.budget-insight-grid-v2 .budget-panel-v2:has(.budget-panel-head-v2 strong) .budget-panel-head-v2 strong {
-  pointer-events: none;
-}
-
-.budget-insight-grid-v2 .budget-panel-v2:has(.budget-panel-head-v2 strong) {}
-
-.budget-insight-grid-v2 .budget-panel-v2:has(.budget-panel-head-v2 strong) { }
-
-.budget-insight-grid-v2 .budget-panel-v2:has(.budget-panel-head-v2 strong) { }
-
-.budget-insight-grid-v2 .budget-panel-v2:has(.budget-panel-head-v2 strong) { }
-
-/* Chrome supports :has(); this targets by section title text structure by retaining the last insight panel. */
-.budget-insight-grid-v2 .budget-panel-v2:last-child {
-  display: block;
-}
-
-/* Hide duplicated unit comparison block from the budget page. */
-.budget-dashboard-v2 > .budget-panel-v2:last-child:has(.budget-unit-rate-list-v2) {
+/* 중복 정보 제거: 위험 비목, 잔액 TOP5는 JS refactor 이후 미생성. 남아있을 경우 안전하게 숨김 */
+.budget-insight-grid-v2 .budget-panel-v2:nth-child(1):not(:last-child),
+.budget-insight-grid-v2 .budget-panel-v2:nth-child(2):not(:last-child) {
   display: none !important;
+}
+
+/* 대시보드와 중복되는 단위과제별 집행률 비교 숨김 */
+.budget-dashboard-v2 > .budget-panel-v2:has(.budget-unit-rate-list-v2) {
+  display: none !important;
+}
+
+/* 세부분야별 집행현황: 1-1의 하위 구조임을 강조 */
+.budget-dashboard-v2 > .budget-panel-v2:has(.budget-category-grid-v2) .budget-panel-head-v2 strong {
+  letter-spacing: -0.02em;
+}
+
+.budget-dashboard-v2 > .budget-panel-v2:has(.budget-category-grid-v2) .budget-category-card-v2:first-child {
+  border-color: #bfdbfe;
+  background: #f8fbff;
+}
+
+@media (max-width: 900px) {
+  .budget-dashboard-v2 > .budget-toolbar-v2 {
+    flex-direction: column !important;
+  }
+
+  .budget-fund-tabs {
+    width: 100%;
+  }
+
+  .budget-dashboard-v2 > .budget-toolbar-v2 .budget-filter-group:first-child {
+    grid-template-columns: 1fr;
+  }
 }
