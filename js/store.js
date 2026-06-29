@@ -267,6 +267,11 @@ async function hydrateSupabaseCollections() {
     }
     if (!Array.isArray(data)) return;
     const normalized = data.map(row => fromDbRow(collectionName, row));
+    const localRows = readCollection(collectionName, []);
+    if (!normalized.length && Array.isArray(localRows) && localRows.length) {
+      console.warn(`[Supabase] ${tableName} 조회 결과가 비어 있어 기존 localStorage 데이터를 유지합니다. 저장 정책/컬럼/RLS를 확인하세요.`);
+      return;
+    }
     state = { ...state, [collectionName]: normalized };
     writeCollection(collectionName, normalized);
   }));
