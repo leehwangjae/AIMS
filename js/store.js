@@ -123,7 +123,10 @@ const DB_FIELD_MAP = {
     evidenceFileId: 'evidence_file_id'
   },
   departments: {
-    unitTaskId: 'unit_task_id'
+    unitTaskId: 'unit_task_id',
+    department: 'name',
+    bachelor: 'student_count',
+    note: 'memo'
   },
   graduates: {
     unitTaskId: 'unit_task_id',
@@ -312,6 +315,10 @@ async function syncDelete(collectionName, itemId) {
 }
 
 function toDbRow(collectionName, item) {
+  if (collectionName === 'departments') {
+    return toDepartmentDbRow(item);
+  }
+
   const fieldMap = { ...DB_FIELD_MAP.common, ...(DB_FIELD_MAP[collectionName] || {}) };
   const dbRow = {};
 
@@ -326,7 +333,31 @@ function toDbRow(collectionName, item) {
   return dbRow;
 }
 
+function toDepartmentDbRow(item) {
+  const bachelor = Number(item.bachelor || item.studentCount || 0);
+  const master = Number(item.master || 0);
+  const doctor = Number(item.doctor || 0);
+  const nano = Number(item.nano || 0);
+  const memo = item.note || item.memo || `석사 ${master}명 · 박사 ${doctor}명 · 나노디그리 ${nano}명`;
+
+  return {
+    id: item.id,
+    unit_task_id: item.unitTaskId,
+    track_id: item.trackId || null,
+    name: item.department || item.name || '',
+    student_count: bachelor,
+    graduate_count: master + doctor,
+    memo,
+    created_at: item.createdAt || item.created_at || new Date().toISOString(),
+    updated_at: item.updatedAt || item.updated_at || new Date().toISOString()
+  };
+}
+
 function fromDbRow(collectionName, row) {
+  if (collectionName === 'departments') {
+    return fromDepartmentDbRow(row);
+  }
+
   const fieldMap = { ...DB_FIELD_MAP.common, ...(DB_FIELD_MAP[collectionName] || {}) };
   const inverseMap = Object.fromEntries(Object.entries(fieldMap).map(([appKey, dbKey]) => [dbKey, appKey]));
   const appRow = {};
@@ -339,6 +370,27 @@ function fromDbRow(collectionName, row) {
   appRow.createdAt = row.created_at;
   appRow.updatedAt = row.updated_at;
   return appRow;
+}
+
+function fromDepartmentDbRow(row) {
+  const memo = row.memo || '';
+  const masterMatch = memo.match(/석사\s*(\d+)/);
+  const doctorMatch = memo.match(/박사\s*(\d+)/);
+  const nanoMatch = memo.match(/나노디그리\s*(\d+)/);
+
+  return {
+    id: row.id,
+    unitTaskId: row.unit_task_id,
+    trackId: row.track_id,
+    department: row.name || '',
+    bachelor: Number(row.student_count || 0),
+    master: masterMatch ? Number(masterMatch[1]) : Number(row.graduate_count || 0),
+    doctor: doctorMatch ? Number(doctorMatch[1]) : 0,
+    nano: nanoMatch ? Number(nanoMatch[1]) : 0,
+    note: memo || '학과 규모 정보이며 KPI 산출 제외',
+    createdAt: row.created_at,
+    updatedAt: row.updated_at
+  };
 }
 
 function normalizeDbValue(value) {
