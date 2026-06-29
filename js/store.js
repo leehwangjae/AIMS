@@ -273,6 +273,9 @@ async function hydrateSupabaseCollections() {
     }
     if (!Array.isArray(data)) return;
     const normalized = data.map(row => fromDbRow(collectionName, row));
+    // Supabase가 빈 배열을 반환하면 로컬 데이터를 보존 (저장 실패 시 데이터 손실 방지)
+    const localData = state[collectionName] || [];
+    if (normalized.length === 0 && localData.length > 0) return;
     state = { ...state, [collectionName]: normalized };
     writeCollection(collectionName, normalized);
   }));
