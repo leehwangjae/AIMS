@@ -289,18 +289,27 @@ async function syncUpsert(collectionName, item) {
     console.warn(`[AIMS] ${collectionName} 저장은 localStorage에만 반영됨: Supabase config missing.`);
     return;
   }
-  const client = await getSupabaseClient();
-  if (!client) return;
-  const tableName = getTableName(collectionName);
-  const payload = toDbRow(collectionName, item);
-  const { error } = await client.from(tableName).upsert(payload, { onConflict: 'id' });
-  if (error) {
-    console.warn(`[Supabase] ${tableName} 저장 실패`, error.message, payload);
-    showSyncWarning(`${tableName} 저장 실패: ${error.message}`);
-    return;
+  try {
+    const client = await getSupabaseClient();
+    if (!client) {
+      console.warn('[AIMS] Supabase 클라이언트 생성 실패 - localStorage에만 저장됨');
+      return;
+    }
+    const tableName = getTableName(collectionName);
+    const payload = toDbRow(collectionName, item);
+    console.info(`[Supabase] ${tableName} 저장 시도`, payload);
+    const { error } = await client.from(tableName).upsert(payload, { onConflict: 'id' });
+    if (error) {
+      console.warn(`[Supabase] ${tableName} 저장 실패`, error.message, payload);
+      showSyncWarning(`${tableName} 저장 실패: ${error.message}`);
+      return;
+    }
+    syncMode = 'supabase';
+    console.warn(`[Supabase] ${tableName} 저장 완료 ✓`, item.id);
+  } catch (e) {
+    console.warn('[Supabase] syncUpsert 예외 발생', e?.message || e);
+    showSyncWarning(`Supabase 연결 오류: ${e?.message || '알 수 없는 오류'}`);
   }
-  syncMode = 'supabase';
-  console.info(`[Supabase] ${tableName} 저장 완료`, item.id);
 }
 
 async function syncDelete(collectionName, itemId) {
