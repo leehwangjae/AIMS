@@ -16,6 +16,10 @@ const initialState = {
   files: [],
   tasks: [],
   taskComments: [],
+  departments: [],
+  graduates: [],
+  companies: [],
+  industryIndex: [],
   activeRoute: 'dashboard'
 };
 
@@ -29,15 +33,29 @@ const DB_FIELD_MAP = {
     createdBy: 'created_by',
     updatedBy: 'updated_by'
   },
+  programs: {
+    unitTaskId: 'unit_task_id',
+    linkedKpi: 'linked_kpi',
+    companyNames: 'company_names',
+    startDate: 'start_date',
+    endDate: 'end_date',
+    hasPlan: 'has_plan',
+    hasResultReport: 'has_result_report',
+    expectedRecognized: 'expected_recognized'
+  },
   budgets: {
     unitTaskId: 'unit_task_id',
     budgetItemId: 'budget_item_id',
     trackId: 'track_id',
     fundType: 'fund_type',
     erpLineNo: 'erp_line_no',
+    erpItem: 'erp_item',
+    programName: 'program_name',
     executed: 'executed_amount',
     executedAmount: 'executed_amount',
+    allocated: 'allocated_amount',
     executionDate: 'execution_date',
+    executionRate: 'execution_rate',
     vendorName: 'vendor_name',
     evidenceFileId: 'evidence_file_id',
     memo: 'memo'
@@ -48,16 +66,22 @@ const DB_FIELD_MAP = {
     trackId: 'track_id',
     fundType: 'fund_type',
     riseCategory: 'rise_category',
+    erpItem: 'erp_item',
+    allocationType: 'allocation_type',
     allocated: 'allocated_amount',
     allocatedAmount: 'allocated_amount'
   },
   budgetAllocationHistory: {
     unitTaskId: 'unit_task_id',
     budgetItemId: 'budget_item_id',
-    previousAmount: 'previous_amount',
-    nextAmount: 'next_amount',
+    trackId: 'track_id',
+    fundType: 'fund_type',
+    changedAt: 'changed_at',
     changedBy: 'changed_by',
-    changedAt: 'changed_at'
+    previousAmount: 'previous_amount',
+    previousAllocated: 'previous_amount',
+    nextAmount: 'next_amount',
+    nextAllocated: 'next_amount'
   },
   tasks: {
     unitTaskId: 'unit_task_id',
@@ -76,7 +100,9 @@ const DB_FIELD_MAP = {
     fileType: 'file_type',
     fileSize: 'file_size',
     uploadedBy: 'uploaded_by',
-    uploadedAt: 'uploaded_at'
+    uploadedAt: 'uploaded_at',
+    programName: 'program_name',
+    fileName: 'file_name'
   },
   reports: {
     unitTaskId: 'unit_task_id',
@@ -84,7 +110,9 @@ const DB_FIELD_MAP = {
     fileType: 'file_type',
     fileSize: 'file_size',
     uploadedBy: 'uploaded_by',
-    uploadedAt: 'uploaded_at'
+    uploadedAt: 'uploaded_at',
+    programName: 'program_name',
+    fileName: 'file_name'
   },
   performanceIndicators: {
     unitTaskId: 'unit_task_id',
@@ -93,8 +121,48 @@ const DB_FIELD_MAP = {
     actualValue: 'actual_value',
     achievementRate: 'achievement_rate',
     evidenceFileId: 'evidence_file_id'
+  },
+  departments: {
+    unitTaskId: 'unit_task_id'
+  },
+  graduates: {
+    unitTaskId: 'unit_task_id',
+    studentName: 'student_name',
+    degreeType: 'degree_type',
+    graduationMonth: 'graduation_month',
+    employmentRegion: 'employment_region'
+  },
+  companies: {
+    unitTaskId: 'unit_task_id',
+    companyName: 'company_name',
+    hasMou: 'has_mou',
+    mouDate: 'mou_date',
+    participationType: 'participation_type'
+  },
+  industryIndex: {
+    unitTaskId: 'unit_task_id',
+    curriculumRevisionCount: 'curriculum_revision_count',
+    companyCapstoneCount: 'company_capstone_count',
+    mouCount: 'mou_count',
+    workerTrainingCount: 'worker_training_count'
   }
 };
+
+const SUPABASE_COLLECTIONS = [
+  'users',
+  'programs',
+  'budgetAllocations',
+  'budgets',
+  'budgetAllocationHistory',
+  'files',
+  'tasks',
+  'taskComments',
+  'performanceIndicators',
+  'departments',
+  'graduates',
+  'companies',
+  'industryIndex'
+];
 
 export function initializeStore() {
   syncMode = isSupabaseEnabled() ? 'supabase' : 'local';
@@ -111,7 +179,11 @@ export function initializeStore() {
     reports: initializeCollection('reports', []),
     files: initializeCollection('files', []),
     tasks: initializeCollection('tasks', []),
-    taskComments: initializeCollection('taskComments', [])
+    taskComments: initializeCollection('taskComments', []),
+    departments: initializeCollection('departments', []),
+    graduates: initializeCollection('graduates', []),
+    companies: initializeCollection('companies', []),
+    industryIndex: initializeCollection('industryIndex', [])
   };
 
   notify();
@@ -140,7 +212,10 @@ export function setActiveRoute(routeId) {
 export function upsertItem(collectionName, item) {
   const collection = getCollection(collectionName);
   const exists = collection.some(row => row.id === item.id);
-  const nextItem = exists ? { ...item, updatedAt: new Date().toISOString() } : { ...item, createdAt: item.createdAt || new Date().toISOString() };
+  const now = new Date().toISOString();
+  const nextItem = exists
+    ? { ...item, updatedAt: now }
+    : { ...item, createdAt: item.createdAt || now, updatedAt: item.updatedAt || now };
 
   const nextCollection = exists
     ? collection.map(row => row.id === item.id ? { ...row, ...nextItem } : row)
@@ -182,9 +257,8 @@ async function hydrateSupabaseCollections() {
   }
 
   syncMode = 'supabase';
-  const collections = ['users', 'programs', 'budgetAllocations', 'budgets', 'budgetAllocationHistory', 'files', 'tasks', 'taskComments', 'performanceIndicators'];
 
-  await Promise.all(collections.map(async collectionName => {
+  await Promise.all(SUPABASE_COLLECTIONS.map(async collectionName => {
     const tableName = getTableName(collectionName);
     const { data, error } = await client.from(tableName).select('*').order('created_at', { ascending: true });
     if (error) {
@@ -213,6 +287,7 @@ async function syncUpsert(collectionName, item) {
   const { error } = await client.from(tableName).upsert(payload, { onConflict: 'id' });
   if (error) {
     console.warn(`[Supabase] ${tableName} 저장 실패`, error.message, payload);
+    showSyncWarning(`${tableName} 저장 실패: ${error.message}`);
     return;
   }
   syncMode = 'supabase';
@@ -225,7 +300,10 @@ async function syncDelete(collectionName, itemId) {
   if (!client) return;
   const tableName = getTableName(collectionName);
   const { error } = await client.from(tableName).delete().eq('id', itemId);
-  if (error) console.warn(`[Supabase] ${tableName} 삭제 실패`, error.message);
+  if (error) {
+    console.warn(`[Supabase] ${tableName} 삭제 실패`, error.message);
+    showSyncWarning(`${tableName} 삭제 실패: ${error.message}`);
+  }
 }
 
 function toDbRow(collectionName, item) {
@@ -270,6 +348,29 @@ function camelToSnake(value) {
 
 function snakeToCamel(value) {
   return String(value).replace(/_([a-z])/g, (_, letter) => letter.toUpperCase());
+}
+
+function showSyncWarning(message) {
+  if (typeof document === 'undefined') return;
+  const toast = document.createElement('div');
+  toast.textContent = message;
+  Object.assign(toast.style, {
+    position: 'fixed',
+    bottom: '24px',
+    left: '50%',
+    transform: 'translateX(-50%)',
+    maxWidth: '760px',
+    padding: '10px 16px',
+    borderRadius: '10px',
+    background: '#991b1b',
+    color: '#fff',
+    fontSize: '13px',
+    fontWeight: '700',
+    zIndex: '99999',
+    boxShadow: '0 12px 30px rgba(15, 23, 42, .22)'
+  });
+  document.body.appendChild(toast);
+  setTimeout(() => toast.remove(), 6000);
 }
 
 function notify() {
