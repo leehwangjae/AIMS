@@ -123,7 +123,13 @@ const DB_FIELD_MAP = {
     evidenceFileId: 'evidence_file_id'
   },
   departments: {
-    unitTaskId: 'unit_task_id'
+    unitTaskId: 'unit_task_id',
+    department: 'department',
+    bachelor: 'bachelor',
+    master: 'master',
+    doctor: 'doctor',
+    nano: 'nano',
+    note: 'note'
   },
   graduates: {
     unitTaskId: 'unit_task_id',
