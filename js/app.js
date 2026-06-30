@@ -1,6 +1,7 @@
 import { getCurrentUser } from './auth.js';
 import { showToast } from './ui.js';
 import { bindPlanAiEnhancer } from './plan-ai-enhancer.js';
+import { initializeStore } from './store.js';
 import { sampleUsers, sampleProjects, samplePrograms } from '../data/sample-data.js';
 import './business-hydration-fix.js';
 
@@ -31,6 +32,7 @@ function initializeSession() {
 
 function initializeApplication() {
   initializeStorage();
+  initializeStore();
   initializeSession();
   bindPlanAiEnhancer();
 
