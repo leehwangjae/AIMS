@@ -191,7 +191,16 @@ body{font-family:var(--fn);background:var(--bg);color:var(--tx);min-height:100vh
 .dmi.dng{color:var(--rd)}
 .dmi.dng:hover{background:var(--rd-l)}
 .dms{height:1px;background:var(--bd);margin:4px 0}
+
+@media print {
+  body { background: #fff !important; font-size: 11pt; }
+  .topbar, .nav, .no-print, .snav { display: none !important; }
+  .sc, .mtl-wrap { box-shadow: none !important; border: 1px solid #ccc !important; }
+  .mtl-section { page-break-inside: avoid; }
+  @page { margin: 15mm 12mm; size: A4; }
+}
 </style>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
 </head>
 <body>
 <!-- LOGIN -->
@@ -204,6 +213,7 @@ body{font-family:var(--fn);background:var(--bg);color:var(--tx);min-height:100vh
     <div class="lf"><label>비밀번호</label><input type="password" id="LPW" placeholder="비밀번호 입력" onkeydown="if(event.key==='Enter')login()"></div>
     <button class="lbtn" onclick="login()">로그인</button>
     <div id="LE"></div>
+    <div style="text-align:center;margin-top:8px"><a href="#" style="font-size:12px;color:#888" onclick="resetAcc();return false">로그인이 안 되나요? 계정 초기화</a></div>
     <div class="lh">기본 마스터 계정: <strong>admin</strong> / <strong>rise2026!</strong></div>
   </div>
 </div>
@@ -241,6 +251,59 @@ body{font-family:var(--fn);background:var(--bg);color:var(--tx);min-height:100vh
   <div id="t-sch" style="display:none"></div><div id="t-rpt" style="display:none"></div>
 </div>
 <div class="toast" id="TOAST"></div>
+
+<!-- DAILY LOG MODAL -->
+<div class="mbg" id="MDL"><div class="modal" style="width:560px">
+  <div class="mhd"><span id="MDLT">일일 업무 입력</span><button onclick="cm('MDL')">×</button></div>
+  <div class="mbd">
+    <div class="dlog-grid">
+      <div><label class="fl">날짜</label><input class="fi" id="dl_date" type="date"></div>
+      <div><label class="fl">단위사업</label><select class="fi" id="dl_unit"><option>1-1</option><option>1-2</option><option>1-3</option><option value="2-1">2-1 AI</option></select></div>
+      <div class="dlog-full">
+        <label class="fl">업무명 <span style="font-size:11.5px;color:var(--tx3)">(기존 업무 연동 또는 직접 입력)</span></label>
+        <select class="fi" id="dl_task_sel" onchange="dlTaskSel(this.value)" style="margin-bottom:6px"><option value="">-- 기존 업무추진 목록에서 선택 --</option></select>
+        <input class="fi" id="dl_title" placeholder="또는 직접 입력">
+      </div>
+      <div><label class="fl">업무구분</label><select class="fi" id="dl_type"><option value="정량지표">정량지표</option><option value="정성지표">정성지표</option><option value="일반행정">일반행정</option></select></div>
+      <div><label class="fl">진행상태</label><select class="fi" id="dl_stat"><option>진행중</option><option>완료</option><option>지연</option><option>예정</option></select></div>
+      <div class="dlog-full"><label class="fl">✅ 오늘 한 일 <span style="color:var(--rd)">*</span></label><textarea class="fi" id="dl_done" rows="2" placeholder="오늘 추진한 업무 내용을 입력하세요" style="resize:vertical"></textarea></div>
+      <div class="dlog-full"><label class="fl">📊 결과 / 성과</label><textarea class="fi" id="dl_result" rows="2" placeholder="업무 결과 또는 달성 성과" style="resize:vertical"></textarea></div>
+      <div class="dlog-full"><label class="fl">⚠ 이슈 / 특이사항 <span style="font-size:11.5px;color:var(--tx3)">(선택)</span></label><textarea class="fi" id="dl_issue" rows="2" placeholder="문제점, 협조 필요 사항, 특이사항 등" style="resize:vertical"></textarea></div>
+      <div class="dlog-full"><label class="fl">📅 다음 예정 업무 <span style="font-size:11.5px;color:var(--tx3)">(선택)</span></label><input class="fi" id="dl_next" placeholder="내일 또는 차주 예정 업무"></div>
+    </div>
+  </div>
+  <div class="mft"><button class="mcx" onclick="cm('MDL')">취소</button><button class="mok" onclick="svDL()">저장</button></div>
+</div></div>
+
+<!-- ERP MODAL -->
+<div class="mbg" id="MERP"><div class="modal" style="width:680px">
+  <div class="mhd"><span><i class="ti ti-table-import"></i> ERP 예산 집행현황 업로드</span><button onclick="cm('MERP')">×</button></div>
+  <div class="mbd">
+    <div style="background:#eff6ff;border:1.5px solid #bfdbfe;border-radius:var(--r-md);padding:14px 16px;margin-bottom:16px;font-size:13.5px;line-height:1.8;color:#1e3a8a">
+      <strong>이 파일 형식에 맞게 자동 파싱합니다:</strong><br>
+      • 헤더 2행 → 3행부터 데이터<br>
+      • <strong>비목</strong> 컬럼: <code>1-1&gt;항목명</code> 형식에서 단위과제 자동 추출<br>
+      • <strong>예산액(A)</strong>(col 7) = 편성액 / <strong>집행액</strong> = 예산액 - 예산잔액<br>
+      • 금액 단위: 파일의 원(₩) 값을 1,000으로 나눠 천원으로 저장
+    </div>
+    <div class="fg">
+      <div>
+        <label class="fl">사업비 구분</label>
+        <select class="fi" id="erp_btype"><option value="연차">연차사업비</option><option value="이월">이월사업비</option></select>
+      </div>
+      <div>
+        <label class="fl">ERP 파일 (.xlsx)</label>
+        <input type="file" class="fi" id="erpFile" accept=".xlsx,.xls" onchange="parseERP(this)" style="padding:6px">
+      </div>
+    </div>
+    <div id="erpStatus" style="font-size:13px;margin-top:10px"></div>
+    <div id="erpPreview" style="margin-top:12px"></div>
+  </div>
+  <div class="mft">
+    <button class="mcx" onclick="cm('MERP')">취소</button>
+    <button class="mok" id="erpApplyBtn" onclick="applyERP()" style="display:none">반영</button>
+  </div>
+</div></div>
 <!-- TASK MODAL -->
 <div class="mbg" id="MT"><div class="modal">
   <div class="mhd"><span id="MTT">업무 추가</span><button onclick="cm('MT')">×</button></div>
@@ -396,6 +459,11 @@ function sU(u){localStorage.setItem('a_u',JSON.stringify(u));}
 if(!localStorage.getItem('a_u'))sU([...DU]);
 let CU=null;
 
+function resetAcc(){
+  if(!confirm('사용자 계정만 초기화하고 관리자(admin / rise2026!)만 남깁니다.\n업무·예산 등 다른 데이터는 유지됩니다. 진행할까요?'))return;
+  sU([...DU]);sessionStorage.removeItem('a_s');
+  document.getElementById('LE').textContent='초기화 완료. admin / rise2026! 로 로그인하세요.';
+}
 function login(){
   const id=document.getElementById('LID').value.trim();
   const pw=document.getElementById('LPW').value;
@@ -539,6 +607,13 @@ const DEFS={
     {id:3,title:'TP 월간보고 제출',date:'2026-05-31',unit:'전체',etype:'보고',who:'관리자',memo:''},
     {id:4,title:'AI 교육과정 킥오프',date:'2026-06-02',unit:'2-1',etype:'회의',who:'관리자',memo:''},
   ],
+  dailyLogs:[
+    {id:9001,date:'2026-05-26',unit:'1-1',taskId:'',title:'바이오헬스 교육과정 중간 검토',type:'정량지표',stat:'완료',done:'교육과정 중간 검토 완료 및 피드백 수렴',result:'전체 콘텐츠 85% 완성, 강사 확정 완료',issue:'',next:'최종 검토 자료 정리',who:'관리자',ownerId:'admin'},
+    {id:9002,date:'2026-05-26',unit:'1-1',taskId:'',title:'KPCA MOU 후속 협력 회의 준비',type:'정량지표',stat:'진행중',done:'회의 자료 초안 작성 및 내부 검토',result:'협력 항목 3건 정리 완료',issue:'',next:'목요일 회의 최종 확인',who:'관리자',ownerId:'admin'},
+    {id:9003,date:'2026-05-27',unit:'1-2',taskId:'',title:'자율주행 장비 업체 견적 검토',type:'일반행정',stat:'진행중',done:'3개 업체 견적 수령 및 비교표 작성',result:'A업체 선정 의견 도출',issue:'예산 초과 우려 - 담당자 협의 필요',next:'구매 요청서 작성',who:'관리자',ownerId:'admin'},
+    {id:9004,date:'2026-05-27',unit:'1-3',taskId:'',title:'i-Union 멘토링 3차 프로그램',type:'정량지표',stat:'완료',done:'멘토링 3차 세션 진행 (참가자 23명)',result:'만족도 4.6/5.0 달성, 창업 아이디어 발표 5건',issue:'',next:'4차 일정 조율',who:'관리자',ownerId:'admin'},
+    {id:9005,date:'2026-05-28',unit:'2-1',taskId:'',title:'AI 교육과정 1차 개발 착수',type:'정량지표',stat:'진행중',done:'커리큘럼 목차 초안 작성, 외부 강사 섭외 시작',result:'목차 70% 완성',issue:'',next:'강사 계약서 검토',who:'관리자',ownerId:'admin'},
+  ],
   weeklyData:{
     '2026-W22':{
       '1-1':{lastWeek:[{id:101,text:'바이오헬스 교육과정 중간 검토 완료',who:'관리자',type:'정량지표'}],nextWeek:[{id:102,text:'반도체 실습 프로그램 1차 설계안 제출',who:'관리자',type:'정량지표'}]},
@@ -553,10 +628,10 @@ function ld(k){try{const v=localStorage.getItem('a_'+k);return v?JSON.parse(v):J
 function sv(k,v){try{localStorage.setItem('a_'+k,JSON.stringify(v));}catch{toast('저장 공간 부족','e');}}
 
 let indicators=ld('indicators'),tasks=ld('tasks'),budget=ld('budget'),
-    dokuments=ld('dokuments'),reports=ld('reports'),events=ld('events'),weeklyData=ld('weeklyData');
+    dokuments=ld('dokuments'),reports=ld('reports'),events=ld('events'),weeklyData=ld('weeklyData'),dailyLogs=ld('dailyLogs');
 
-let tFlt='전체',bUF='전체',bTF='전체',iF='전체',pV='doc',cV='week',wkO=0,moO=0;
-let eT=null,eB=null,eI=null,eD=null,eR=null,eE=null,eW=null;
+let tFlt='전체',bUF='전체',bTF='전체',iF='전체',pV='card',cV='week',wkO=0,moO=0;
+let eT=null,eB=null,eI=null,eD=null,eR=null,eE=null,eW=null,eDL=null;
 let pFiles=[];
 
 const fmt=n=>new Intl.NumberFormat('ko-KR').format(typeof n==='number'?parseFloat(n.toFixed(2)):n);
@@ -709,7 +784,7 @@ function rBud(){
         <button class="fb${bTF==='연차'?' on':''}" style="${bTF==='연차'?'':'color:#1e3a8a;border-color:#1a6fc4'}" onclick="bTF='연차';rBud()">연차</button>
       </div>
     </div>
-    ${isAdmin()?`<button class="btn bp" onclick="opB()"><i class="ti ti-plus"></i> 항목 추가</button>`:`<span class="ph"><i class="ti ti-lock"></i> 관리자 권한 필요</span>`}
+    ${isAdmin()?`<div style="display:flex;gap:8px"><button class="btn" style="background:#0f6e56;color:#fff" onclick="opERP()"><i class="ti ti-table-import"></i> ERP 업로드</button><button class="btn bp" onclick="opB()"><i class="ti ti-plus"></i> 항목 추가</button></div>`:`<span class="ph"><i class="ti ti-lock"></i> 관리자 권한 필요</span>`}
   </div>
   <div class="sc ov">`;
   ['이월','연차'].forEach(btype=>{
@@ -749,11 +824,16 @@ function rBud(){
 // ── PERSONAL ──
 function rPer(){
   let h=`<div class="snav">
+    <button class="snb${pV==='card'?' on':''}" onclick="pV='card';rPer()"><i class="ti ti-layout-cards"></i> 업무카드</button>
+    <button class="snb${pV==='gen'?' on':''}" onclick="pV='gen';rPer()"><i class="ti ti-file-export"></i> 자료 생성</button>
+    <button class="snb${pV==='dl'?' on':''}" onclick="pV='dl';rPer()"><i class="ti ti-pencil-check"></i> 일일업무</button>
     <button class="snb${pV==='doc'?' on':''}" onclick="pV='doc';rPer()"><i class="ti ti-file-text"></i> 기안관리</button>
     <button class="snb${pV==='rpt'?' on':''}" onclick="pV='rpt';rPer()"><i class="ti ti-report"></i> 보고서관리</button>
     <button class="snb${pV==='wk'?' on':''}" onclick="pV='wk';rPer()"><i class="ti ti-calendar-week"></i> 주간보고</button>
   </div>`;
-  if(pV==='doc'){
+  if(pV==='card'){h+=rCard();}else if(pV==='gen'){h+=rGen();}
+  else if(pV==='dl'){h+=rDL();}
+  else if(pV==='doc'){
     h+=`<div class="tb"><div></div><button class="btn bp" onclick="opD()"><i class="ti ti-plus"></i> 기안 추가</button></div>
     <div class="sc ov"><table class="tbl"><thead><tr>
       <th style="width:90px">유형</th><th style="width:60px">단위</th><th>제목</th>
@@ -1037,11 +1117,753 @@ function dlR(id){if(confirm('삭제?')){reports=reports.filter(r=>r.id!==id);sv(
 function dlE(id){if(confirm('삭제?')){events=events.filter(e=>e.id!==id);sv('events',events);rSch();}}
 function dlWK(key,unit,sec,id){weeklyData[key][unit][sec]=weeklyData[key][unit][sec].filter(i=>i.id!==id);sv('weeklyData',weeklyData);rPer();}
 
+
+// ══ DAILY LOG ══
+function rDL(){
+  const byDate={};
+  dailyLogs.forEach(l=>{if(!byDate[l.date])byDate[l.date]=[];byDate[l.date].push(l);});
+  const dates=Object.keys(byDate).sort().reverse();
+
+  let h=`<div class="tb" style="margin-bottom:14px">
+    <div style="display:flex;align-items:center;gap:10px">
+      <span style="font-size:15px;font-weight:700">일일 업무 현황</span>
+      <span style="font-size:13px;color:var(--tx2)">총 ${dailyLogs.length}건</span>
+    </div>
+    <div style="display:flex;gap:8px">
+      <button class="btn" style="background:#0f6e56;color:#fff" onclick="showMtl()"><i class="ti ti-presentation"></i> 회의자료 생성</button>
+      <button class="btn bp" onclick="opDL()"><i class="ti ti-plus"></i> 업무 입력</button>
+    </div>
+  </div>`;
+
+  if(!dates.length){
+    h+=`<div class="sc" style="padding:40px;text-align:center;color:var(--tx3)">
+      <i class="ti ti-clipboard" style="font-size:40px;display:block;margin-bottom:10px"></i>
+      아직 입력된 업무가 없습니다<br><br>
+      <button class="btn bp" onclick="opDL()"><i class="ti ti-plus"></i> 첫 번째 업무 입력하기</button>
+    </div>`;
+    return h;
+  }
+
+  // ── 단일 테이블 (날짜 그룹 헤더 행 포함) ──
+  h+=`<div class="sc ov">
+  <table class="mtl-tbl" style="table-layout:fixed;width:100%">
+    <colgroup>
+      <col style="width:54px">
+      <col style="width:82px">
+      <col style="width:17%">
+      <col style="width:30%">
+      <col style="width:20%">
+      <col style="width:66px">
+      <col style="width:82px">
+    </colgroup>
+    <thead><tr>
+      <th>단위</th><th>구분</th><th>업무명</th>
+      <th>오늘 한 일</th><th>결과 / 성과</th>
+      <th>상태</th><th>관리</th>
+    </tr></thead>
+    <tbody>`;
+
+  const dayN=['일','월','화','수','목','금','토'];
+  dates.forEach(date=>{
+    const items=byDate[date];
+    const d=new Date(date+'T00:00:00');
+    const dateLabel=`${d.getMonth()+1}월 ${d.getDate()}일 (${dayN[d.getDay()]})`;
+    const issueCount=items.filter(i=>i.issue).length;
+
+    // 날짜 그룹 헤더 행
+    h+=`<tr style="background:var(--sf2);border-top:2px solid var(--bd)">
+      <td colspan="5" style="padding:10px 14px;font-size:14.5px;font-weight:700">
+        📅 ${dateLabel}
+        <span style="font-size:13px;font-weight:400;color:var(--tx2);margin-left:8px">${items.length}건</span>
+        ${issueCount?`<span style="font-size:12px;color:var(--or);background:var(--or-l);padding:2px 9px;border-radius:10px;font-weight:600;margin-left:8px">⚠ 이슈 ${issueCount}건</span>`:''}
+      </td>
+      <td colspan="2" style="padding:10px 14px;text-align:right">
+        <button class="btn bs bo" onclick="opDL(null,'${date}')"><i class="ti ti-plus"></i> 추가</button>
+      </td>
+    </tr>`;
+
+    items.forEach(l=>{
+      const canEdit=l.ownerId===CU?.id||isMaster();
+      h+=`<tr>
+        <td>${ub(l.unit)}</td>
+        <td>${tb(l.type)}</td>
+        <td style="font-weight:500;word-break:keep-all;overflow-wrap:anywhere">${l.title}</td>
+        <td style="line-height:1.6;word-break:keep-all;overflow-wrap:anywhere">${l.done}</td>
+        <td style="color:var(--tx2);word-break:keep-all;overflow-wrap:anywhere">${l.result||'<span style="color:var(--tx3)">-</span>'}</td>
+        <td>${sba(l.stat)}</td>
+        <td><div class="aw">${canEdit?AE('opDL('+l.id+')')+AD('dlDL('+l.id+')'):'-'}</div></td>
+      </tr>`;
+      if(l.issue||l.next){
+        const bg=l.issue?'#fff7ed':'#f0f9ff';
+        h+=`<tr style="background:${bg}"><td colspan="7" style="padding:7px 16px;font-size:13px">
+          ${l.issue?`<span style="color:var(--or)"><i class="ti ti-alert-triangle"></i> <strong>이슈:</strong> ${l.issue}</span>`:''}
+          ${l.issue&&l.next?' &nbsp;|&nbsp; ':''}
+          ${l.next?`<span style="color:#0369a1"><i class="ti ti-calendar-event"></i> <strong>다음 예정:</strong> ${l.next}</span>`:''}
+        </td></tr>`;
+      }
+    });
+  });
+
+  h+=`</tbody></table></div>`;
+  return h;
+}
+
+// 회의자료 생성
+function showMtl(){
+  // 주차 선택 팝업 대신 바로 현재 주차로 생성
+  const wkKey=gWK(wkO);
+  const mon=new Date(BM);mon.setDate(BM.getDate()+wkO*7);
+  const sun=new Date(mon);sun.setDate(mon.getDate()+6);
+  const range=`${mon.getMonth()+1}.${String(mon.getDate()).padStart(2,'0')} ~ ${sun.getMonth()+1}.${String(sun.getDate()).padStart(2,'0')}`;
+  const wkNum=BWK+wkO;
+
+  // 해당 주차 날짜 범위
+  const wkDates=[];
+  for(let i=0;i<7;i++){const d=new Date(mon);d.setDate(mon.getDate()+i);wkDates.push(`${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`);}
+
+  // 해당 주차 일일로그 필터
+  const wkLogs=dailyLogs.filter(l=>wkDates.includes(l.date));
+  const allIssues=wkLogs.filter(l=>l.issue);
+  const done=wkLogs.filter(l=>l.stat==='완료').length;
+  const ing=wkLogs.filter(l=>l.stat==='진행중').length;
+  const delay=wkLogs.filter(l=>l.stat==='지연').length;
+
+  let mtl=`
+  <div class="mtl-wrap no-print" id="MTL_PREV" style="margin-top:0">
+    <div class="mtl-header">
+      <div style="display:flex;justify-content:space-between;align-items:flex-start">
+        <div>
+          <h1>📋 RISE 미래인재개발팀 주간 업무보고</h1>
+          <p>인천대학교 RISE사업단 · ${wkNum}주차 (${range})</p>
+        </div>
+        <div class="no-print" style="display:flex;gap:8px">
+          <button class="btn" style="background:rgba(255,255,255,.2);color:#fff;border:1.5px solid rgba(255,255,255,.4)" onclick="closeMtl()"><i class="ti ti-x"></i> 닫기</button>
+          <button class="btn" style="background:#fff;color:#1a6fc4;font-weight:700" onclick="window.print()"><i class="ti ti-printer"></i> 인쇄 / PDF</button>
+        </div>
+      </div>
+      <div class="mtl-meta">
+        <span>📅 ${new Date().toLocaleDateString('ko-KR')}</span>
+        <span>총 ${wkLogs.length}건</span>
+        ${allIssues.length?`<span style="background:rgba(239,68,68,.3)">⚠ 이슈 ${allIssues.length}건</span>`:''}
+      </div>
+    </div>
+    <div class="mtl-summary">
+      <div class="mtl-sum-box"><div class="mtl-sum-v" style="color:#1a6fc4">${wkLogs.length}</div><div class="mtl-sum-l">전체 업무</div></div>
+      <div class="mtl-sum-box"><div class="mtl-sum-v" style="color:#0f6e56">${done}</div><div class="mtl-sum-l">완료</div></div>
+      <div class="mtl-sum-box"><div class="mtl-sum-v" style="color:#1a6fc4">${ing}</div><div class="mtl-sum-l">진행중</div></div>
+      <div class="mtl-sum-box"><div class="mtl-sum-v" style="color:#b91c1c">${delay}</div><div class="mtl-sum-l">지연</div></div>
+    </div>`;
+
+  UNITS.forEach(u=>{
+    const uLogs=wkLogs.filter(l=>l.unit===u);if(!uLogs.length)return;
+    const uIssues=uLogs.filter(l=>l.issue);
+    mtl+=`<div class="mtl-section">
+      <div class="mtl-sec-hd" style="color:${UC[u]};background:${UC[u]}10">
+        <span style="width:10px;height:10px;border-radius:50%;background:${UC[u]};display:inline-block;flex-shrink:0"></span>
+        ${u} · ${UN[u]}
+        <span style="font-size:13px;font-weight:400;color:${UC[u]};background:${UC[u]}22;padding:2px 10px;border-radius:10px;margin-left:4px">${uLogs.length}건</span>
+      </div>
+      <table class="mtl-tbl">
+        <colgroup><col style="width:8%"><col style="width:9%"><col style="width:17%"><col style="width:38%"><col style="width:20%"><col style="width:8%"></colgroup>
+        <thead><tr>
+          <th>날짜</th><th>구분</th><th>업무명</th>
+          <th>추진내용</th><th>결과/성과</th><th>상태</th>
+        </tr></thead><tbody>`;
+    uLogs.forEach(l=>{
+      const dayN=['일','월','화','수','목','금','토'];const d=new Date(l.date);
+      mtl+=`<tr>
+        <td style="color:var(--tx2);white-space:nowrap">${d.getMonth()+1}/${d.getDate()}(${dayN[d.getDay()]})</td>
+        <td>${tb(l.type)}</td>
+        <td style="font-weight:500;word-break:keep-all">${l.title}</td>
+        <td style="line-height:1.6;word-break:keep-all">${l.done}</td>
+        <td style="color:var(--tx2)">${l.result||'-'}</td>
+        <td>${sba(l.stat)}</td>
+      </tr>`;
+    });
+    mtl+=`</tbody></table>`;
+    if(uIssues.length){
+      mtl+=`<div class="issue-box"><div class="issue-box-title">⚠ 이슈 / 특이사항</div>`;
+      uIssues.forEach(l=>{mtl+=`<div class="issue-item"><span style="flex-shrink:0;color:var(--or);font-weight:600">${l.title}</span><span>${l.issue}</span></div>`;});
+      mtl+=`</div>`;
+    }
+    mtl+=`</div>`;
+  });
+
+  if(!wkLogs.length){mtl+=`<div style="padding:40px;text-align:center;color:var(--tx3)">이번 주 입력된 업무가 없습니다</div>`;}
+
+  mtl+=`</div>`;
+
+  // 기존 미리보기 제거 후 삽입
+  const prev=document.getElementById('MTL_PREV');
+  if(prev)prev.remove();
+  const container=document.getElementById('t-per');
+  container.insertAdjacentHTML('afterbegin',mtl);
+  document.getElementById('MTL_PREV').scrollIntoView({behavior:'smooth'});
+}
+function closeMtl(){const el=document.getElementById('MTL_PREV');if(el)el.remove();}
+
+// 일일업무 모달 열기
+function opDL(id,defaultDate){
+  eDL=id||null;
+  document.getElementById('MDLT').textContent=id?'업무 수정':'일일 업무 입력';
+  // 업무 드롭다운 채우기
+  const sel=document.getElementById('dl_task_sel');
+  sel.innerHTML='<option value="">-- 기존 업무추진 목록에서 선택 --</option>'+tasks.map(t=>`<option value="${t.id}" data-unit="${t.unit}" data-type="${t.type}">${t.unit} · ${t.title}</option>`).join('');
+  if(id){
+    const l=dailyLogs.find(x=>x.id===id);
+    if(l){
+      document.getElementById('dl_date').value=l.date;
+      document.getElementById('dl_unit').value=l.unit;
+      document.getElementById('dl_task_sel').value='';
+      document.getElementById('dl_title').value=l.title;
+      document.getElementById('dl_type').value=l.type;
+      document.getElementById('dl_stat').value=l.stat;
+      document.getElementById('dl_done').value=l.done;
+      document.getElementById('dl_result').value=l.result||'';
+      document.getElementById('dl_issue').value=l.issue||'';
+      document.getElementById('dl_next').value=l.next||'';
+    }
+  } else {
+    document.getElementById('dl_date').value=defaultDate||new Date().toISOString().split('T')[0];
+    ['dl_done','dl_result','dl_issue','dl_next','dl_title'].forEach(i=>document.getElementById(i).value='');
+    document.getElementById('dl_stat').value='진행중';
+  }
+  om('MDL');
+}
+function dlTaskSel(val){
+  if(!val)return;
+  const t=tasks.find(x=>x.id==val);
+  if(t){
+    document.getElementById('dl_title').value=t.title;
+    document.getElementById('dl_unit').value=t.unit;
+    document.getElementById('dl_type').value=t.type||'일반행정';
+  }
+}
+function svDL(){
+  const date=document.getElementById('dl_date').value,unit=document.getElementById('dl_unit').value,title=document.getElementById('dl_title').value.trim(),type=document.getElementById('dl_type').value,stat=document.getElementById('dl_stat').value,done=document.getElementById('dl_done').value.trim(),result=document.getElementById('dl_result').value.trim(),issue=document.getElementById('dl_issue').value.trim(),next=document.getElementById('dl_next').value.trim();
+  if(!done){toast('오늘 한 일을 입력하세요','e');return;}
+  if(!title){toast('업무명을 입력하세요','e');return;}
+  if(eDL){const idx=dailyLogs.findIndex(l=>l.id===eDL);if(idx>-1)dailyLogs[idx]={...dailyLogs[idx],date,unit,title,type,stat,done,result,issue,next};}
+  else dailyLogs.push({id:Date.now(),date,unit,title,type,stat,done,result,issue,next,who:CU?.name||'',ownerId:CU?.id||'admin'});
+  sv('dailyLogs',dailyLogs);cm('MDL');rPer();toast('업무가 저장되었습니다');
+}
+function dlDL(id){if(confirm('삭제하시겠습니까?')){dailyLogs=dailyLogs.filter(l=>l.id!==id);sv('dailyLogs',dailyLogs);rPer();}}
+
+// ══ ERP UPLOAD ══
+let erpParsed = [];
+
+function opERP(){
+  erpParsed=[];
+  document.getElementById('erpStatus').innerHTML='';
+  document.getElementById('erpPreview').innerHTML='';
+  document.getElementById('erpApplyBtn').style.display='none';
+  document.getElementById('erpFile').value='';
+  om('MERP');
+}
+
+function parseERP(input){
+  const file=input.files[0];
+  if(!file)return;
+  const st=document.getElementById('erpStatus');
+  st.innerHTML='<span style="color:#1a6fc4">⏳ 파일 읽는 중...</span>';
+
+  const reader=new FileReader();
+  reader.onload=function(e){
+    try{
+      const wb=XLSX.read(e.target.result,{type:'array'});
+      const ws=wb.Sheets[wb.SheetNames[0]];
+      const rows=XLSX.utils.sheet_to_json(ws,{header:1,defval:null});
+
+      // 헤더 2행 → 3행부터 데이터
+      const dataRows=rows.slice(2);
+      const parsed=[];
+      const skipped=[];
+      const AIMS_UNITS=['1-1','1-2','1-3','2-1'];
+
+      dataRows.forEach((row,idx)=>{
+        if(!row||row.every(v=>v===null||v===undefined||v===''))return;
+
+        const bimok=String(row[2]||'').trim();
+        const al_raw=parseFloat(row[6])||0;   // 예산액(A)
+        const rem_raw=parseFloat(row[11])||0;  // 예산잔액(A-B)
+        const ex_raw=al_raw-rem_raw;           // 집행액
+
+        // 비목에서 단위과제 추출
+        const unitMatch=bimok.match(/^([0-9]-[0-9A-Za-z]+)/);
+        const unit=unitMatch?unitMatch[1]:null;
+
+        // AIMS 단위과제에 없는 것 건너뜀
+        if(!unit||!AIMS_UNITS.includes(unit)){
+          skipped.push(bimok.substring(0,30));
+          return;
+        }
+
+        // 항목명: 단위 prefix 제거
+        const nameRaw=bimok.replace(/^[0-9]-[0-9A-Za-z]+><[^>]+>/,'')
+                           .replace(/^[0-9]-[0-9A-Za-z]+>/,'').trim();
+
+        // 비목 코드로 카테고리 매핑
+        const codeMatch=bimok.match(/\(([0-9]{3}-[0-9]{2}[^)]+)\)/);
+        const code=codeMatch?codeMatch[1]:'';
+        let cat='기타';
+        if(/인건비|110-01|210-12/.test(bimok))cat='인건비';
+        else if(/260-01|연구개발/.test(code))cat='연구활동비';
+        else if(/210-01|일반수용비/.test(code))cat='연구활동비';
+        else if(/220-0[12]|여비/.test(code))cat='연구활동비';
+        else if(/310-01|보상금|장학/.test(code+bimok))cat='교육훈련비';
+        else if(/210-11|재료비/.test(code))cat='장비재료비';
+        else if(/270-01|시설/.test(code))cat='장비재료비';
+        else if(/간접비/.test(bimok))cat='간접비';
+
+        const al=Math.round(al_raw/1000);
+        const ex=Math.round(ex_raw/1000);
+
+        if(al===0&&ex===0)return; // 금액 없는 행 제외
+
+        parsed.push({unit,cat,name:nameRaw.substring(0,40),al,ex});
+      });
+
+      erpParsed=parsed;
+      renderERPPreview(parsed,skipped);
+    }catch(err){
+      document.getElementById('erpStatus').innerHTML=
+        `<span style="color:var(--rd)">❌ 파일 읽기 오류: ${err.message}</span>`;
+    }
+  };
+  reader.readAsArrayBuffer(file);
+}
+
+function renderERPPreview(parsed,skipped){
+  const st=document.getElementById('erpStatus');
+  const prev=document.getElementById('erpPreview');
+  const applyBtn=document.getElementById('erpApplyBtn');
+
+  if(!parsed.length){
+    st.innerHTML='<span style="color:var(--rd)">❌ 읽을 수 있는 데이터가 없습니다. (1-1~2-1 단위과제 행이 있는지 확인)</span>';
+    applyBtn.style.display='none';
+    return;
+  }
+
+  st.innerHTML=`<span style="color:#0f6e56">✅ ${parsed.length}개 항목 파싱 완료${skipped.length?` (${skipped.length}개 제외: 사업단공통·기타 단위)`:''}</span>`;
+  applyBtn.style.display='block';
+
+  // 단위과제별 합계
+  const byUnit={};
+  parsed.forEach(p=>{
+    if(!byUnit[p.unit])byUnit[p.unit]={al:0,ex:0,cnt:0};
+    byUnit[p.unit].al+=p.al;byUnit[p.unit].ex+=p.ex;byUnit[p.unit].cnt++;
+  });
+
+  let h=`<div style="font-size:13px;font-weight:600;color:var(--tx2);margin-bottom:8px">📊 파싱 결과 미리보기 (금액: 천원)</div>
+  <table class="tbl" style="table-layout:fixed;width:100%">
+    <colgroup><col style="width:52px"><col style="width:80px"><col><col style="width:90px"><col style="width:90px"><col style="width:55px"></colgroup>
+    <thead><tr><th>단위</th><th>비목</th><th>항목명</th><th style="text-align:right">편성액</th><th style="text-align:right">집행액</th><th>집행률</th></tr></thead>
+    <tbody>`;
+
+  ['1-1','1-2','1-3','2-1'].forEach(u=>{
+    const uItems=parsed.filter(p=>p.unit===u);
+    if(!uItems.length)return;
+    const uTotAl=uItems.reduce((s,p)=>s+p.al,0);
+    const uTotEx=uItems.reduce((s,p)=>s+p.ex,0);
+    h+=`<tr style="background:${UC[u]}12;border-top:2px solid ${UC[u]}">
+      <td colspan="3" style="font-size:13.5px;font-weight:700;color:${UC[u]};padding:8px 12px">${u} · ${UN[u]} (${uItems.length}건)</td>
+      <td style="text-align:right;font-weight:700;color:${UC[u]}">${fmt(uTotAl)}</td>
+      <td style="text-align:right;font-weight:700;color:${UC[u]}">${fmt(uTotEx)}</td>
+      <td style="font-weight:700;color:${UC[u]}">${uTotAl>0?Math.round(uTotEx/uTotAl*100):0}%</td>
+    </tr>`;
+    uItems.forEach(p=>{
+      const r=p.al>0?Math.round(p.ex/p.al*100):0;
+      h+=`<tr><td>${ub(p.unit)}</td><td><span style="font-size:12px;color:${CC[p.cat]||'#4338ca'};background:${CC[p.cat]||'#4338ca'}18;padding:2px 7px;border-radius:10px">${p.cat}</span></td><td style="overflow:hidden;text-overflow:ellipsis;white-space:nowrap" title="${p.name}">${p.name}</td><td style="text-align:right">${fmt(p.al)}</td><td style="text-align:right">${fmt(p.ex)}</td><td style="font-weight:600;color:${pc(r)}">${r}%</td></tr>`;
+    });
+  });
+  h+=`</tbody></table>`;
+  prev.innerHTML=h;
+}
+
+function applyERP(){
+  if(!erpParsed.length)return;
+  const btype=document.getElementById('erp_btype').value;
+  let added=0,updated=0;
+
+  erpParsed.forEach(p=>{
+    // 같은 unit+btype+cat+name이 있으면 업데이트, 없으면 추가
+    const existing=budget.findIndex(b=>b.unit===p.unit&&b.btype===btype&&b.name===p.name);
+    if(existing>-1){
+      budget[existing].al=p.al;budget[existing].ex=p.ex;updated++;
+    } else {
+      budget.push({id:Date.now()+added,unit:p.unit,btype,cat:p.cat,name:p.name,al:p.al,ex:p.ex});
+      added++;
+    }
+  });
+
+  sv('budget',budget);cm('MERP');rBud();
+  toast(`ERP 반영 완료: 추가 ${added}건, 업데이트 ${updated}건`);
+}
 // ── INIT ──
 document.getElementById('DL').textContent=new Date().toLocaleDateString('ko-KR',{year:'numeric',month:'long',day:'numeric'});
 const sess=sessionStorage.getItem('a_s');
 if(sess){try{const u=JSON.parse(sess);const latest=gU().find(x=>x.id===u.id);if(latest){CU=latest;document.getElementById('LS').style.display='none';document.getElementById('TB').style.display='flex';document.getElementById('APP').style.display='block';rUC();go('task');}}catch{}}
 document.getElementById('LID').focus();
+
+// ══════════════════════════════════════════════
+// 업무카드 (v4): 한 번 입력 → 주간 / 월간 / 부서과제 / 실태조사 자동 분류
+// ══════════════════════════════════════════════
+const DEPTS=['대학과 지역간 지식 협력 네트워크 기반 강화','지역 현안 의제 발굴 및 공론화, 지역사회 문제 해결','지역사회 지식나눔 추진','학부생 및 대학원생 연구활동 지원','전략산업 특화 프로그램 운영'];
+const DEPT_S=['지식협력 네트워크','현안 의제·공론화','지식나눔','연구활동 지원','전략산업 특화'];
+
+// 단위과제 마스터 (월간보고서 양식 기준)
+const MST={
+'1-1':{no:'1-①',title:'전략산업 융합기술 고급인력 양성',role:'주관',pi:'이원종 교수(인천대학교/생명공학부)',period:'(2차년도) 2026. 3. 1. ~ 2027. 2. 28.',biz:819000,
+ cats:[
+  {n:'바이오·반도체·물류 산업수요 맞춤형 교육과정 기획',d:['전략산업 지산학연 협력 체계 구축, ICC 기반 산학협력 활성화, 산업맞춤형 교육과정 개편, 글로벌 교육협력 네트워크 구축 추진']},
+  {n:'바이오·반도체·물류 융합 기술교육 및 전문인력 배출',d:['교육연구 인프라 구축, 나노디그리, 매트릭스 등 교육체계 고도화, 기업참여형 교과 및 비교과 과정 운영, 고급기술인력 글로벌 연구역량 강화 프로그램']},
+  {n:'바이오·반도체·물류 전문인력 후속 관리 체계 구축',d:['학생성공지수 도입 및 상시 모니터링, 학생 커리어 관리 프로그램 및 전문인력 후속관리 체계 고도화, 창업 지원 및 인큐베이팅']},
+  {n:'인천 전략산업 맞춤형 성인 학습자 특성화 교육 체계 구축',d:['지속가능한 평생 직업교육 체계 구축, 지역산업 평생교육 수요조사 기반 온라인 교육 콘텐츠 개발 및 공유, 지식 허브 구축']},
+  {n:'전략산업 평생 직업교육 프로그램 운영 및 고도화',d:['평생교육 학생관리 시스템 고도화, 기술 재교육 워크숍 및 세미나 개최, 전략산업 기술 전문가 교육과정 운영']}],
+ inds:[{t:'필수',n:'①인력양성 인원(명)',g:467},{t:'필수',n:'②취업률(%)',g:38.7},{t:'자율',n:'③캡스톤디자인 이수학생 비율(%)',g:39},{t:'자율',n:'⑤학생성공지수 우수자 비율(%)',g:30},{t:'자율',n:'⑥산학협력 지수',g:35}]},
+'1-2':{no:'1-②',title:'스마트 모빌리티 특화 기술교육',role:'주관',pi:'박기원 교수(인천대학교/바이오-로봇시스템공학과)',period:'(2차년도) 2026. 3. 1. ~ 2027. 2. 28.',biz:320000,
+ cats:[
+  {n:'현장 중심 교육 체계 고도화',d:['산업 수요 기반 실무형 교육과정 운영 강화','기업 연계 캡스톤디자인, 프로젝트형 학습(PBL) 확대','현장실습 및 인턴십 연계 체계 고도화','이론–실습–현장–취업으로 이어지는 통합 교육 구조 구축','교육성과가 취업 및 산업성과로 환류되는 구조 설계']},
+  {n:'지산학연 협력 기반 고도화',d:['ICC(기업협업센터) 중심 산학연 협력 모델 운영','기업 연계 프로젝트 및 초광역 협력 네트워크 구축','지역 산업 수요 기반 공동 교육·연구 프로그램 운영']},
+  {n:'비교과 프로그램 고도화',d:['실습 중심 집중 프로그램 운영','경진대회 및 프로젝트 기반 프로그램 확대','취·창업 연계 비교과 프로그램 운영','글로벌 및 산학 연계 프로그램 확대']}],
+ inds:[{t:'필수',n:'인력양성 인원(명)',g:170},{t:'필수',n:'취업률(%)',g:28.53},{t:'자율',n:'캡스톤디자인 이수학생 비율(%)',g:17},{t:'자율',n:'교육과정 개발(개편) 건수',g:6},{t:'자율',n:'산업체 과제(PBL)',g:4},{t:'자율',n:'융합기술 포럼(세미나) 및 성과교류회',g:2},{t:'자율',n:'단기 전문교육과정 개설건수',g:5},{t:'자율',n:'단기 전문교육과정 배출인원',g:100}]},
+'1-3':{no:'1-③',title:'I-Union 혁신창업 생태계 구축',role:'참여',pi:'강동구 교수(인천대학교/창업지원단 단장)',period:'(2차년도) 2026. 3. 1. ~ 2027. 2. 28.',biz:230000,
+ cats:[
+  {n:'I-Union 결성',d:['I-Union 플랫폼 기반 창업교육 콘텐츠 공유 및 연계 체계 구축']},
+  {n:'대학원 설립',d:['실전 창업 중심의 석사 과정(창업 MBA 등) 기획 및 운영']},
+  {n:'단계별 지원-창업교육',d:['창업기초 교육과정 개발 및 산업 맞춤형 콘텐츠 적용']},
+  {n:'단계별 지원-BM 고도화',d:['1:1 BM 진단, 시장 분석, 고객 인터뷰 및 MVP 테스트']},
+  {n:'단계별 지원-글로벌 역량 강화',d:['해외 창업 생태계 탐방 및 네트워크 구축']},
+  {n:'인천 창업 RISE-Up 플랫폼',d:['창업공간·지원정보 통합 지도, 콘텐츠 제작 및 온라인 플랫폼 구축']},
+  {n:'I-Union 오프라인 마켓',d:['유동인구 밀집지역에서 창업 마켓 운영']},
+  {n:'인천 청년 글로벌 창업 역량강화',d:['해외 창업기업, 액셀러레이터, VC 와의 네트워킹 및 피칭 훈련 제공']},
+  {n:'메이커톤과 크라우드 펀딩',d:['제품화 전과정 체험을 통한 창업 아이디어 사업화 촉진']}],
+ inds:[{t:'필수',n:'①창업교육 이수학생 수(명)',g:4248},{t:'필수',n:'②교원/대학생 창업 건수(건)',g:82.6},{t:'선택',n:'③창업 프로그램 만족도(5점 만점)',g:2.85},{t:'선택',n:'④창업협력 프로그램 개발·운영(건)',g:59.9}]},
+'2-1':{no:'2-①',title:'혁신기술 지원을 위한 산학협력 공유플랫폼 조성 [AI 인재양성]',role:'주관',pi:'김우일 교수(인천대학교/컴퓨터공학부)',period:'(2차년도) 2026. 3. 1. ~ 2027. 2. 28.',biz:320000,
+ cats:[
+  {n:'지역 전략산업 중심 AI 융합 교육모델 확립',d:['학·석사 통합형 AI 융합 트랙(INU ALTER)을 신설','나노디그리 및 기업문제해결형 산학캡스톤디자인 운영']},
+  {n:'기업 맞춤형 AI 핵심인재 양성',d:['AI 융합 실증 프로젝트, 단기 집중형 AI엔지니어 부트캠프 등 운영','지역기업 취업 연계 강화 및 산업별 AI 핵심 인재 양성']},
+  {n:'산학 네트워크 기반 AI 생태계 구축',d:['“AI융합 ICC선도 산학협력 AI 플랫폼 발전 모델” 구축','데이터 기반 실증·문제해결 교육과 산학협력 체계 마련','지역기업의 AI 전환 인식 확산을 위한 기업 리더 및 재직자, 지역시민 대상의 교육 및 세미나 운영']},
+  {n:'초광역 AI 혁신 얼라이언스 구축',d:['초광역 AI 협력 체계 구축 및 공동 교육과정 개발·운영, 학생·연구자 교류, 부트캠프 공동 개최 등 협업을 통한 초광역 AI 협력 모델 구축']}],
+ inds:[{t:'필수',n:'AI 인재양성 인원 수(명)',g:80},{t:'필수',n:'AI 교육과정 개발·운영 건수(건)',g:8},{t:'자율',n:'AI 교육 만족도(점)',g:65},{t:'자율',n:'산학협력 프로젝트 수(건)',g:8},{t:'자율',n:'초광역 협력 프로그램 운영 건수(건)',g:2}]}
+};
+// 성과지표 누적방식: %·점·만점은 '최근값', 나머지는 '합계'
+const indMode=n=>/\(%\)|점|지수/.test(n)?'last':'sum';
+
+// 실태조사 활동유형 (실태조사 엑셀 시트와 대응)
+const ACT=[
+{k:'corp',l:'기업 참여',sheet:'앵커 참여기업 현황',f:[['corpName','기업명','t'],['region','소재지','s',['지역 내','지역 외']],['size','기업규모','s',['대기업','중견기업','중소기업']],['field','산업 분야','t'],['role','참여 역할','s',['공동 연구 개발','연구 장비 공동 활용','현장 실습','재직자 교육','취업 연계','교육 참여','기타']]]},
+{k:'rnd',l:'산학공동기술개발과제',sheet:'산학공동기술개발과제 세부',f:[['pname','과제명','t'],['start','연구 시작일','d'],['end','연구 종료일','d'],['gov','연구비-국고(천원)','n'],['loc','연구비-지방비(천원)','n'],['etc','연구비-기타(천원)','n'],['fac','참여 교원 수(명)','n'],['stu','참여 학생 수(명)','n'],['org','참여기관명','t'],['pat1','지식재산권 출원(건)','n'],['pat2','지식재산권 등록(건)','n']]},
+{k:'startup',l:'교원·학생 창업',sheet:'교원·학생 창업 세부',f:[['who','교원/학생','s',['교원','학생']],['cname','창업 기업명','t'],['item','창업 아이템명','t'],['region','창업 지역','t'],['emp','고용 인원 수(명)','n'],['sales','기업 매출액(천원)','n'],['inv','외부 투자 지원액(천원)','n']]},
+{k:'platform',l:'지역혁신 플랫폼·클러스터',sheet:'지역혁신 플랫폼·클러스터 구성 및 운영',f:[['pfname','명칭','t'],['func','주요기능','t'],['since','구성연월일','d'],['orgs','참여기관 수(건)','n'],['members','참여구성원 수(명)','n'],['runs','운영횟수(회)','n']]},
+{k:'equip',l:'공용장비 활용',sheet:'공용장비 운영 활용 실적',f:[['eq','장비명','t'],['corps','활용 기업 수(개)','n'],['income','활용 수입(천원)','n']]},
+{k:'issue',l:'지역현안·리빙랩·늘봄·소상공인',sheet:'지역 현안 해결 활동',f:[['itype','유형','s',['지역현안 해결 활동','리빙랩','늘봄 프로그램','소상공인 지원','초·중·고 연계 프로그램']],['cnt','운영/지원 건수(건)','n'],['ppl','참여 인원(업체) 수','n'],['amt','지원액(천원)','n']]},
+{k:'talent',l:'지역산업 연계 인재양성',sheet:'지역산업 연계 인재양성',f:[['ttype','유형','s',['표준현장실습','캡스톤디자인','취·창업 역량 강화','글로벌 역량 강화']],['courses','교육과정(프로그램) 수(개)','n'],['students','이수 학생 수(명)','n'],['orgs','실습기관 수(개)','n']]},
+{k:'adult',l:'성인학습자·재직자 교육',sheet:'성인학습자·재직자 교육',f:[['atype','유형','s',['성인학습자 친화 교육','재직자 교육']],['courses','운영 과정 수(개)','n'],['ppl','이수/참여 인원(명)','n']]}
+];
+
+// ── 유틸 ──
+const esc=s=>String(s==null?'':s).replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
+function ymd(d){return d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0');}
+function parseD(s){const[a,b,c]=s.split('-').map(Number);return new Date(a,b-1,c||1);}
+function addD(d,n){const x=new Date(d);x.setDate(x.getDate()+n);return x;}
+function monOf(d){const x=new Date(d);x.setDate(x.getDate()-((x.getDay()+6)%7));return x;}
+const DN=['일','월','화','수','목','금','토'];
+
+let cards=(()=>{try{const v=localStorage.getItem('a_cards');return v?JSON.parse(v):[];}catch{return[];}})();
+function svCards(){try{localStorage.setItem('a_cards',JSON.stringify(cards));}catch{toast('저장 공간 부족','e');}}
+let cFU='전체',cFK='전체',cMine=false,eCard=null,cSrc=null;
+let gMode='week',gDate=ymd(monOf(new Date())),gMonth=ymd(new Date()).slice(0,7),gUnit='전체',gHalf='1',gYear=String(new Date().getFullYear());
+const canCard=c=>c.ownerId===CU?.id||isMaster();
+const catName=(u,i)=>(MST[u]&&MST[u].cats[i])?MST[u].cats[i].n:'(구분 미선택)';
+
+// ── 목록 ──
+function rCard(){
+  const list=cards.filter(c=>(cFU==='전체'||c.unit===cFU)&&(cFK==='전체'||c.kind===cFK)&&(!cMine||c.ownerId===CU?.id))
+    .sort((a,b)=>b.date.localeCompare(a.date)||b.id-a.id);
+  const nA=cards.filter(c=>c.kind==='실적').length,nP=cards.filter(c=>c.kind==='계획').length;
+  let h=`<div class="tb" style="margin-bottom:12px">
+    <div class="fr">${['전체',...UNITS].map(f=>`<button class="fb${cFU===f?' on':''}" onclick="cFU='${f}';rPer()">${f}</button>`).join('')}
+      <span style="width:10px"></span>
+      ${['전체','실적','계획'].map(f=>`<button class="fb${cFK===f?' on':''}" onclick="cFK='${f}';rPer()">${f}</button>`).join('')}
+      <label style="font-size:13.5px;color:var(--tx2);display:inline-flex;align-items:center;gap:5px;margin-left:8px"><input type="checkbox" ${cMine?'checked':''} onchange="cMine=this.checked;rPer()"> 내 카드만</label>
+    </div>
+    <button class="btn bp" onclick="opCard()"><i class="ti ti-plus"></i> 업무카드 입력</button>
+  </div>
+  <div style="font-size:13.5px;color:var(--tx2);margin-bottom:10px">총 ${cards.length}건 (실적 ${nA} · 계획 ${nP}) — 한 번 입력하면 <b>주간회의 · TP 월간보고 · 부서과제 · 실태조사</b> 자료에 자동 반영됩니다. <a href="#" onclick="pV='gen';rPer();return false" style="color:var(--pr);font-weight:600">자료 생성 →</a></div>`;
+  if(!list.length){
+    h+=`<div class="sc" style="padding:40px;text-align:center;color:var(--tx3)">입력된 업무카드가 없습니다.<br><br><button class="btn bo" onclick="seedCards()">샘플 카드 3건 넣어보기</button></div>`;
+    return h;
+  }
+  h+=`<div class="sc ov"><table class="tbl" style="table-layout:fixed;width:100%"><colgroup>
+    <col style="width:86px"><col style="width:58px"><col style="width:64px"><col style="width:170px"><col><col style="width:150px"><col style="width:70px"><col style="width:150px"></colgroup>
+    <thead><tr><th>날짜</th><th>성격</th><th>단위</th><th>구분</th><th>제목 / 세부</th><th>연결</th><th>작성</th><th>관리</th></tr></thead><tbody>`;
+  list.forEach(c=>{
+    const d=parseD(c.date);
+    const tags=[];
+    if(c.depts&&c.depts.length)tags.push(`<span class="badge bi" title="${esc(c.depts.map(i=>DEPTS[i]).join(', '))}">부서과제 ${c.depts.length}</span>`);
+    if(c.ind!==''&&c.ind!=null&&MST[c.unit]&&MST[c.unit].inds[c.ind]){tags.push(`<span class="badge bq" title="${esc(MST[c.unit].inds[c.ind].n)}">지표 ${c.indVal!==''&&c.indVal!=null?'+'+esc(c.indVal):''}</span>`);}
+    if(c.act){const a=ACT.find(x=>x.k===c.act);if(a)tags.push(`<span class="badge ba" title="실태조사: ${esc(a.sheet)}">${esc(a.l)}</span>`);}
+    if(c.best)tags.push(`<span class="badge bd">★ 우수사례</span>`);
+    const lines=c.lines||[];
+    h+=`<tr>
+      <td style="color:var(--tx2);white-space:nowrap">${d.getMonth()+1}/${d.getDate()}(${DN[d.getDay()]})</td>
+      <td><span class="badge ${c.kind==='실적'?'bd':'bp2'}">${c.kind}</span></td>
+      <td>${ub(c.unit)}</td>
+      <td style="font-size:13px;line-height:1.5;word-break:keep-all;white-space:normal">${esc(catName(c.unit,c.cat))}</td>
+      <td style="white-space:normal;line-height:1.55;word-break:keep-all"><b>○ ${esc(c.title)}</b>${lines.slice(0,2).map(l=>`<div style="font-size:13px;color:var(--tx2)">- ${esc(l)}</div>`).join('')}${lines.length>2?`<div style="font-size:12.5px;color:var(--tx3)">… 외 ${lines.length-2}줄</div>`:''}</td>
+      <td style="white-space:normal;line-height:2">${tags.join(' ')||'<span style="color:var(--tx3)">-</span>'}</td>
+      <td style="white-space:nowrap">${esc(c.who)}</td>
+      <td><div class="aw">${canCard(c)?AE(`opCard(${c.id})`)+AD(`dlCard(${c.id})`):''}${c.kind==='계획'&&canCard(c)?`<button class="btn bs bo" style="padding:5px 8px;font-size:12.5px" title="이번에 한 일로 복사" onclick="cvCard(${c.id})">실적 전환</button>`:''}</div></td>
+    </tr>`;
+  });
+  h+=`</tbody></table></div>`;
+  return h;
+}
+
+// ── 입력 모달 ──
+function buildCardModal(){
+  if(document.getElementById('MCARD'))return;
+  document.body.insertAdjacentHTML('beforeend',`<div class="mbg" id="MCARD"><div class="modal" style="width:760px">
+  <div class="mhd"><span id="MCT">업무카드 입력</span><button onclick="cm('MCARD')">×</button></div>
+  <div class="mbd">
+    <div style="font-size:13px;font-weight:700;color:var(--pr);margin-bottom:8px">① 기본 (필수)</div>
+    <div class="fg">
+      <div><label class="fl">날짜 <span style="font-size:11.5px;color:var(--tx3)">(계획이면 시행 예정일)</span></label><input class="fi" id="cd_date" type="date"></div>
+      <div><label class="fl">성격</label><div style="display:flex;gap:16px;padding:9px 2px;font-size:14px"><label><input type="radio" name="cd_kind" value="실적" checked> 실적 (한 일)</label><label><input type="radio" name="cd_kind" value="계획"> 계획 (할 일)</label></div></div>
+      <div><label class="fl">단위과제</label><select class="fi" id="cd_unit" onchange="cdUnit()">${UNITS.map(u=>`<option value="${u}">${u} ${UN[u]}</option>`).join('')}</select></div>
+      <div><label class="fl">구분 (주요수행내용)</label><select class="fi" id="cd_cat"></select></div>
+      <div style="grid-column:1/-1"><label class="fl">제목 <span style="color:var(--rd)">*</span></label><input class="fi" id="cd_title" placeholder="예: 경북대학교 MOU 체결 진행"></div>
+      <div style="grid-column:1/-1"><label class="fl">세부내용 <span style="font-size:11.5px;color:var(--tx3)">(줄바꿈 = 한 항목 / 보고서에 “- 항목”으로 출력)</span></label><textarea class="fi" id="cd_lines" rows="4" style="resize:vertical" placeholder="인천대 앵커사업단 서명 문서 등기 발송&#10;경북대 서명 후 회신 예정"></textarea></div>
+    </div>
+    <details style="margin-top:14px" id="cd_det1"><summary style="cursor:pointer;font-size:13px;font-weight:700;color:var(--pr)">② 연결 — 부서 추진과제 · 성과지표 (해당될 때만)</summary>
+      <div style="margin-top:10px">
+        <label class="fl">부서 추진과제</label>
+        <div id="cd_depts" style="display:grid;grid-template-columns:1fr 1fr;gap:4px 12px;font-size:13.5px;margin-bottom:10px">${DEPTS.map((d,i)=>`<label style="display:flex;gap:6px;align-items:flex-start"><input type="checkbox" class="cd_dept" value="${i}" style="margin-top:3px"> ${esc(d)}</label>`).join('')}</div>
+        <div class="fg"><div><label class="fl">성과지표</label><select class="fi" id="cd_ind"></select></div>
+        <div><label class="fl">이번 실적값 <span style="font-size:11.5px;color:var(--tx3)">(명·건은 합산, %·점은 최근값)</span></label><input class="fi" id="cd_indv" type="number" step="any"></div></div>
+      </div>
+    </details>
+    <details style="margin-top:12px" id="cd_det2"><summary style="cursor:pointer;font-size:13px;font-weight:700;color:var(--pr)">③ 실태조사 — 활동 유형 (해당될 때만)</summary>
+      <div style="margin-top:10px"><select class="fi" id="cd_act" onchange="cdAct()"><option value="">해당 없음</option>${ACT.map(a=>`<option value="${a.k}">${a.l}  (${a.sheet})</option>`).join('')}</select>
+      <div id="cd_actf" class="fg" style="margin-top:10px"></div>
+      <label style="display:flex;gap:6px;align-items:center;margin-top:12px;font-size:14px;font-weight:600"><input type="checkbox" id="cd_best" onchange="cdBest()"> ★ 우수사례로 등록 (실태조사 우수사례 시트에 자동 포함)</label>
+      <div id="cd_bestw" style="display:none;margin-top:8px"><label class="fl">대표 성과 (정량적 성과 포함)</label><input class="fi" id="cd_bestr" placeholder="예: 참여기업 12개사, 취업연계 8명"></div></div>
+    </details>
+  </div>
+  <div class="mft"><button class="mcx" onclick="cm('MCARD')">취소</button><button class="mok" onclick="svCard()">저장</button></div>
+</div></div>`);
+}
+function cdUnit(sel){
+  const u=document.getElementById('cd_unit').value,m=MST[u];
+  document.getElementById('cd_cat').innerHTML=m.cats.map((c,i)=>`<option value="${i}">${i+1}. ${esc(c.n)}</option>`).join('');
+  document.getElementById('cd_ind').innerHTML='<option value="">선택 안 함</option>'+m.inds.map((x,i)=>`<option value="${i}">[${x.t}] ${esc(x.n)}</option>`).join('');
+}
+function cdAct(vals){
+  const k=document.getElementById('cd_act').value,box=document.getElementById('cd_actf');
+  if(!k){box.innerHTML='';return;}
+  const a=ACT.find(x=>x.k===k);vals=vals||{};
+  box.innerHTML=a.f.map(([id,l,t,o])=>{
+    const v=vals[id]!=null?vals[id]:'';
+    const inp=t==='s'?`<select class="fi" id="caf_${id}"><option value="">선택</option>${o.map(x=>`<option${x===v?' selected':''}>${esc(x)}</option>`).join('')}</select>`
+      :`<input class="fi" id="caf_${id}" type="${t==='n'?'number':t==='d'?'date':'text'}" ${t==='n'?'step="any"':''} value="${esc(v)}">`;
+    return `<div><label class="fl">${l}</label>${inp}</div>`;}).join('');
+}
+function cdBest(){document.getElementById('cd_bestw').style.display=document.getElementById('cd_best').checked?'block':'none';}
+function opCard(id,pre){
+  buildCardModal();
+  eCard=id||null;cSrc=pre&&pre.srcId||null;
+  const c=id?cards.find(x=>x.id===id):(pre||null);
+  document.getElementById('MCT').textContent=id?'업무카드 수정':'업무카드 입력';
+  document.getElementById('cd_unit').value=c?c.unit:UNITS[0];cdUnit();
+  document.getElementById('cd_date').value=c?c.date:ymd(new Date());
+  document.querySelectorAll('input[name=cd_kind]').forEach(r=>r.checked=r.value===(c?c.kind:'실적'));
+  document.getElementById('cd_cat').value=c&&c.cat!=null?c.cat:0;
+  document.getElementById('cd_title').value=c?c.title:'';
+  document.getElementById('cd_lines').value=c?(c.lines||[]).join('\n'):'';
+  document.querySelectorAll('.cd_dept').forEach(x=>x.checked=!!(c&&c.depts&&c.depts.includes(+x.value)));
+  document.getElementById('cd_ind').value=c&&c.ind!=null?c.ind:'';
+  document.getElementById('cd_indv').value=c&&c.indVal!=null?c.indVal:'';
+  document.getElementById('cd_act').value=c&&c.act?c.act:'';cdAct(c&&c.actData);
+  document.getElementById('cd_best').checked=!!(c&&c.best);cdBest();
+  document.getElementById('cd_bestr').value=c&&c.bestResult?c.bestResult:'';
+  document.getElementById('cd_det1').open=!!(c&&((c.depts&&c.depts.length)||c.ind!==''&&c.ind!=null));
+  document.getElementById('cd_det2').open=!!(c&&c.act);
+  om('MCARD');
+}
+function svCard(){
+  const title=document.getElementById('cd_title').value.trim();
+  if(!title){toast('제목을 입력하세요','e');return;}
+  const date=document.getElementById('cd_date').value;if(!date){toast('날짜를 입력하세요','e');return;}
+  const act=document.getElementById('cd_act').value,actData={};
+  if(act)ACT.find(x=>x.k===act).f.forEach(([id])=>{const v=document.getElementById('caf_'+id).value;if(v!=='')actData[id]=v;});
+  const best=document.getElementById('cd_best').checked;
+  const indv=document.getElementById('cd_ind').value;
+  const rec={date,kind:document.querySelector('input[name=cd_kind]:checked').value,unit:document.getElementById('cd_unit').value,
+    cat:+document.getElementById('cd_cat').value,title,
+    lines:document.getElementById('cd_lines').value.split('\n').map(s=>s.trim()).filter(Boolean),
+    depts:[...document.querySelectorAll('.cd_dept:checked')].map(x=>+x.value),
+    ind:indv===''?'':+indv,indVal:indv===''?'':document.getElementById('cd_indv').value,
+    act,actData,best,bestResult:best?document.getElementById('cd_bestr').value.trim():''};
+  if(eCard){const i=cards.findIndex(x=>x.id===eCard);if(i>-1)cards[i]={...cards[i],...rec};}
+  else{cards.push({id:Date.now(),...rec,who:CU?.name||'',ownerId:CU?.id||'admin',srcId:cSrc||null});
+    if(cSrc){const s=cards.find(x=>x.id===cSrc);if(s)s.converted=true;}}
+  svCards();cm('MCARD');rPer();toast('업무카드가 저장되었습니다');
+}
+function dlCard(id){if(confirm('삭제하시겠습니까?')){cards=cards.filter(c=>c.id!==id);svCards();rPer();}}
+function cvCard(id){const c=cards.find(x=>x.id===id);if(!c)return;opCard(null,{...c,kind:'실적',date:ymd(new Date()),srcId:id,best:false,bestResult:'',ind:'',indVal:''});}
+function seedCards(){
+  const t=ymd(new Date()),m=ymd(addD(monOf(new Date()),-3)),n=ymd(addD(monOf(new Date()),1));
+  const b={who:CU?.name||'',ownerId:CU?.id||'admin',depts:[],ind:'',indVal:'',act:'',actData:{},best:false,bestResult:''};
+  cards.push({...b,id:Date.now()+1,date:m,kind:'실적',unit:'1-1',cat:0,title:'경북대학교 MOU 체결 진행',lines:['인천대 앵커사업단 서명 문서 등기 발송','경북대 서명 후 회신 예정'],depts:[0],act:'platform',actData:{pfname:'경북대-인천대 협력체계',orgs:2}});
+  cards.push({...b,id:Date.now()+2,date:m,kind:'실적',unit:'2-1',cat:0,title:'AI 융합 산학 캡스톤디자인 운영 계획(안) 수립',lines:['기업 과제 공모 방안(인디고 활용) 및 운영 일정 등','기업 및 학생 참여 활성화 도모를 위한 홍보 방안 기획'],depts:[4]});
+  cards.push({...b,id:Date.now()+3,date:n,kind:'계획',unit:'1-3',cat:3,title:'I-Union 창업 생태계 구축 우수 창업인재(학부) 지원금 지급 예정',lines:['심의대상 : 총 19명','선정기준 : 2026년 신규 학생창업자, 창업포인트 100점 이상 및 직전학기 평점평균 2.0이상자','총 지급 규모 : 금15,300,000원']});
+  svCards();rPer();
+}
+
+// ── 자료 생성 ──
+const TD='border:1px solid #333;padding:6px 8px;vertical-align:top;font-size:13px;line-height:1.55';
+const TH='border:1px solid #333;padding:6px 8px;background:#dbe8f5;font-weight:700;text-align:center;font-size:13px';
+function itemsHtml(cs){
+  return cs.map(c=>`<div style="margin-bottom:9px"><div style="font-weight:700">○ ${esc(c.title)}</div>${(c.lines||[]).map(l=>`<div style="padding-left:12px;text-indent:-9px;margin-left:9px">- ${esc(l)}</div>`).join('')}</div>`).join('');
+}
+const inR=(c,a,b)=>c.date>=a&&c.date<=b;
+
+function rGen(){
+  let h=`<div class="no-print">
+  <div class="snav" style="margin-bottom:12px;flex-wrap:wrap">
+    ${[['week','주간회의 자료'],['month','TP 월간보고'],['dept','부서 추진과제'],['survey','실태조사']].map(([k,l])=>`<button class="snb${gMode===k?' on':''}" onclick="gMode='${k}';rPer()">${l}</button>`).join('')}
+  </div>
+  <div class="tb" style="margin-bottom:12px"><div style="display:flex;gap:10px;align-items:center;flex-wrap:wrap">`;
+  if(gMode==='week')h+=`<label style="font-size:13.5px">회의일</label><input type="date" class="fi" style="width:160px" value="${gDate}" onchange="gDate=this.value;rPer()"><span style="font-size:13px;color:var(--tx2)">실적 = 직전 1주 / 계획 = 회의일 포함 1주</span>`;
+  else if(gMode==='month')h+=`<label style="font-size:13.5px">보고월</label><input type="month" class="fi" style="width:160px" value="${gMonth}" onchange="gMonth=this.value;rPer()"><select class="fi" style="width:130px" onchange="gUnit=this.value;rPer()">${['전체',...UNITS].map(u=>`<option${gUnit===u?' selected':''}>${u}</option>`).join('')}</select><span style="font-size:13px;color:var(--tx2)">금월 실적 / 차월 계획</span>`;
+  else if(gMode==='dept')h+=`<label style="font-size:13.5px">기간</label><input type="month" class="fi" style="width:160px" value="${gMonth}" onchange="gMonth=this.value;rPer()"><span style="font-size:13px;color:var(--tx2)">해당 월 카드 중 부서과제가 체크된 건</span>`;
+  else h+=`<select class="fi" style="width:110px" onchange="gYear=this.value;rPer()">${['2026','2027'].map(y=>`<option${gYear===y?' selected':''}>${y}</option>`).join('')}</select><select class="fi" style="width:110px" onchange="gHalf=this.value;rPer()"><option value="1"${gHalf==='1'?' selected':''}>상반기</option><option value="2"${gHalf==='2'?' selected':''}>하반기</option></select>`;
+  h+=`</div><div style="display:flex;gap:8px">${gMode==='survey'?`<button class="btn" style="background:#0f6e56;color:#fff" onclick="exSurvey()"><i class="ti ti-file-spreadsheet"></i> 엑셀 내보내기</button>`:`<button class="btn bp" onclick="window.print()"><i class="ti ti-printer"></i> 인쇄 / PDF</button>`}</div></div></div>`;
+  h+=gMode==='week'?genWeek():gMode==='month'?genMonth():gMode==='dept'?genDept():genSurvey();
+  return h;
+}
+
+function genWeek(){
+  const M=parseD(gDate),mon=monOf(M);
+  const a1=ymd(addD(mon,-7)),a2=ymd(addD(mon,-1)),p1=ymd(mon),p2=ymd(addD(mon,6));
+  const done=cards.filter(c=>c.kind==='실적'&&inR(c,a1,a2)),plan=cards.filter(c=>c.kind==='계획'&&inR(c,p1,p2));
+  let h=`<div class="sc" style="padding:26px 30px;background:#fff;color:#111">
+  <div style="text-align:center;font-size:22px;font-weight:800;letter-spacing:4px;padding-bottom:6px;border-bottom:2px solid #111">주간 주요업무 추진실적 및 계획</div>
+  <div style="display:flex;justify-content:space-between;margin:10px 0 6px;font-size:14px"><b>(RISE 미래인재개발팀)</b><span>${mon.getFullYear()}. ${String(mon.getMonth()+1).padStart(2,'0')}. ${String(mon.getDate()).padStart(2,'0')}.(월) <span style="color:#777;font-size:12px">· 실적 ${a1.slice(5)}~${a2.slice(5)} / 계획 ${p1.slice(5)}~${p2.slice(5)}</span></span></div>
+  <table style="width:100%;border-collapse:collapse;table-layout:fixed"><colgroup><col style="width:21%"><col style="width:39.5%"><col style="width:39.5%"></colgroup>
+  <thead><tr><th style="${TH}">제 목</th><th style="${TH}">추진실적</th><th style="${TH}">추진계획</th></tr></thead><tbody>`;
+  let any=false;
+  UNITS.forEach(u=>{
+    const d=done.filter(c=>c.unit===u),p=plan.filter(c=>c.unit===u);
+    const rows=[];MST[u].cats.forEach((_,i)=>{const dd=d.filter(c=>c.cat===i),pp=p.filter(c=>c.cat===i);if(dd.length||pp.length)rows.push([i,dd,pp]);});
+    if(!rows.length)return;any=true;
+    rows.forEach(([i,dd,pp],ri)=>{
+      h+=`<tr>${ri===0?`<td rowspan="${rows.length*2}" style="${TD};font-weight:700">${u==='2-1'?'RISE AI 인재양성 분야':'RISE 미래인재양성 분야'}<div style="font-weight:400;margin-top:6px">(${MST[u].no} ${esc(MST[u].title)})</div></td>`:''}
+        <td colspan="2" style="${TD};background:#f3f6fa;font-size:12px;color:#555;padding:3px 8px">${i+1}. ${esc(MST[u].cats[i].n)}</td></tr>
+        <tr><td style="${TD}">${itemsHtml(dd)}</td><td style="${TD}">${itemsHtml(pp)}</td></tr>`;
+    });
+  });
+  if(!any)h+=`<tr><td colspan="3" style="${TD};text-align:center;color:#999;padding:30px">해당 기간에 입력된 업무카드가 없습니다.</td></tr>`;
+  h+=`</tbody></table></div>`;
+  return h;
+}
+
+function unitBudget(u){
+  const rows=budget.filter(b=>b.unit===u),s=t=>rows.filter(b=>b.btype===t).reduce((a,b)=>({al:a.al+(+b.al||0),ex:a.ex+(+b.ex||0)}),{al:0,ex:0});
+  return {carry:s('이월'),year:s('연차')};
+}
+const rate=(a,b)=>b?(a/b*100).toFixed(1):'0';
+function indActual(u,i,upto){
+  const ind=MST[u].inds[i],cs=cards.filter(c=>c.kind==='실적'&&c.unit===u&&c.ind===i&&c.indVal!==''&&c.date>='2026-03-01'&&c.date<=upto).sort((a,b)=>a.date.localeCompare(b.date));
+  if(!cs.length)return '-';
+  const v=indMode(ind.n)==='last'?+cs[cs.length-1].indVal:cs.reduce((a,c)=>a+(+c.indVal||0),0);
+  return Number.isInteger(v)?v.toLocaleString():String(+v.toFixed(2));
+}
+function genMonth(){
+  const [Y,Mo]=gMonth.split('-').map(Number);
+  const m1=gMonth+'-01',m2=ymd(new Date(Y,Mo,0)),nx=new Date(Y,Mo,1),n1=ymd(nx),n2=ymd(new Date(Y,Mo+1,0));
+  const us=gUnit==='전체'?UNITS:[gUnit];
+  let h='';
+  us.forEach((u,ui)=>{
+    const m=MST[u],bg=unitBudget(u);
+    const done=cards.filter(c=>c.kind==='실적'&&c.unit===u&&inR(c,m1,m2)),plan=cards.filter(c=>c.kind==='계획'&&c.unit===u&&inR(c,n1,n2));
+    const bizY=bg.year.al||m.biz,exY=bg.year.ex;
+    h+=`<div class="sc" style="padding:22px 26px;background:#fff;color:#111;margin-bottom:18px;${ui?'page-break-before:always;':''}">
+    <div style="font-size:19px;font-weight:800;padding-bottom:6px;border-bottom:2px solid #d4145a;margin-bottom:12px">2026 2차년도 인천 RISE 대학별 수행과제 <span style="color:#1a6fc4">(${Mo})월</span> 월간보고서</div>
+    <table style="width:100%;border-collapse:collapse;table-layout:fixed">
+      <tr><td colspan="4" style="${TD};background:#c9dcef;font-size:15px;font-weight:800">단위과제명 : ${m.no} ${esc(m.title)} <i style="font-weight:600">(대학명: 인천대학교)</i></td></tr>
+      <tr><th style="${TH};width:13%">참여구분</th><td style="${TD};text-align:center;width:37%">주관 ${m.role==='주관'?'■':'□'} &nbsp; 참여 ${m.role==='참여'?'■':'□'}</td><th style="${TH};width:13%">수행기간</th><td style="${TD};text-align:center;width:37%">${m.period}</td></tr>
+      <tr><th style="${TH}">총괄책임자</th><td style="${TD};text-align:center">${esc(m.pi)}</td><th style="${TH}">집행실적(천원)</th>
+        <td style="${TD};padding:0"><table style="width:100%;border-collapse:collapse;font-size:12.5px"><tr style="background:#dbe8f5;text-align:center;font-weight:700"><td style="padding:3px">구분</td><td>사업비</td><td>집행액</td><td>집행률(%)</td></tr>
+        <tr style="text-align:center"><td style="padding:3px">1차년도(이월금)</td><td>${bg.carry.al.toLocaleString()}</td><td>${bg.carry.ex.toLocaleString()}</td><td>${rate(bg.carry.ex,bg.carry.al)}</td></tr>
+        <tr style="text-align:center"><td style="padding:3px">2차년도</td><td>${bizY.toLocaleString()}</td><td>${exY.toLocaleString()}</td><td>${rate(exY,bizY)}</td></tr></table></td></tr>
+    </table>
+    <table style="width:100%;border-collapse:collapse;table-layout:fixed;margin-top:-1px"><tr>
+      <td style="${TD};width:52%"><b>주요수행내용</b><div style="margin-top:6px">${m.cats.map((c,i)=>`<div style="font-weight:700;margin-top:4px">${i+1}. ${esc(c.n)}</div>${c.d.map(x=>`<div style="padding-left:10px;font-size:12.5px">- ${esc(x)}</div>`).join('')}`).join('')}</div></td>
+      <td style="${TD};padding:0"><table style="width:100%;border-collapse:collapse;font-size:12.5px"><tr style="background:#dbe8f5;text-align:center;font-weight:700"><td style="padding:4px;width:15%;border-bottom:1px solid #333">구분</td><td style="border-bottom:1px solid #333">성과지표명</td><td style="width:15%;border-bottom:1px solid #333">목표치</td><td style="width:15%;border-bottom:1px solid #333">실적치</td></tr>
+      ${m.inds.map((x,i)=>`<tr><td style="padding:6px 4px;text-align:center;border-bottom:1px solid #ccc">${x.t}</td><td style="border-bottom:1px solid #ccc">${esc(x.n)}</td><td style="text-align:center;border-bottom:1px solid #ccc">${x.g.toLocaleString()}</td><td style="text-align:center;border-bottom:1px solid #ccc;font-weight:700">${indActual(u,i,m2)}</td></tr>`).join('')}</table></td></tr></table>
+    <table style="width:100%;border-collapse:collapse;table-layout:fixed;margin-top:-1px"><tr><th colspan="2" style="${TH};width:50%">금월 수행실적 (${Mo}월)</th><th colspan="2" style="${TH}">차월 수행계획 (${Mo===12?1:Mo+1}월)</th></tr>
+    <tr><th style="${TH};width:13%">구분</th><th style="${TH};width:37%">세부 수행내용</th><th style="${TH};width:13%">구분</th><th style="${TH};width:37%">세부내용</th></tr>`;
+    const rows=m.cats.map((c,i)=>[i,done.filter(x=>x.cat===i),plan.filter(x=>x.cat===i)]).filter(r=>r[1].length||r[2].length);
+    if(!rows.length)h+=`<tr><td colspan="4" style="${TD};text-align:center;color:#999;padding:20px">해당 월에 입력된 업무카드가 없습니다.</td></tr>`;
+    rows.forEach(([i,dd,pp])=>{
+      const lab=`<td style="${TD};text-align:center;font-weight:600">${i+1}. ${esc(m.cats[i].n)}</td>`;
+      h+=`<tr>${dd.length?lab:`<td style="${TD}"></td>`}<td style="${TD}">${itemsHtml(dd)}</td>${pp.length?lab:`<td style="${TD}"></td>`}<td style="${TD}">${itemsHtml(pp)}</td></tr>`;
+    });
+    h+=`</table></div>`;
+  });
+  return h;
+}
+
+function genDept(){
+  const m1=gMonth+'-01',[Y,Mo]=gMonth.split('-').map(Number),m2=ymd(new Date(Y,Mo,0));
+  const cs=cards.filter(c=>inR(c,m1,m2)&&c.depts&&c.depts.length);
+  let h=`<div class="sc" style="padding:22px 26px;background:#fff;color:#111"><div style="font-size:19px;font-weight:800;margin-bottom:12px">부서 추진과제(성과지표) 추진현황 — ${Y}년 ${Mo}월</div>`;
+  DEPTS.forEach((d,i)=>{
+    const l=cs.filter(c=>c.depts.includes(i)).sort((a,b)=>a.date.localeCompare(b.date));
+    h+=`<div style="margin-top:14px"><div style="font-weight:800;font-size:14.5px;background:#eef3fa;padding:7px 10px;border-left:4px solid #1a6fc4">${i+1}. ${esc(d)} <span style="font-weight:500;color:#555;font-size:13px">(${l.length}건)</span></div>`;
+    h+=l.length?`<table style="width:100%;border-collapse:collapse;margin-top:6px"><colgroup><col style="width:70px"><col style="width:60px"><col style="width:60px"><col></colgroup>${l.map(c=>{const dt=parseD(c.date);return `<tr><td style="${TD}">${dt.getMonth()+1}/${dt.getDate()}</td><td style="${TD}">${c.kind}</td><td style="${TD}">${c.unit}</td><td style="${TD}">${itemsHtml([c])}</td></tr>`;}).join('')}</table>`:`<div style="color:#999;font-size:13px;padding:8px 4px">해당 월 카드 없음</div>`;
+    h+=`</div>`;
+  });
+  return h+`</div>`;
+}
+
+function surveyData(){
+  const y=gYear,a=y+(gHalf==='1'?'-01-01':'-07-01'),b=y+(gHalf==='1'?'-06-30':'-12-31');
+  return {a,b,cs:cards.filter(c=>c.kind==='실적'&&inR(c,a,b))};
+}
+function genSurvey(){
+  const {a,b,cs}=surveyData();
+  let h=`<div class="sc" style="padding:22px 26px;background:#fff;color:#111"><div style="font-size:19px;font-weight:800;margin-bottom:4px">지역혁신활동 실태조사 집계</div><div style="color:#666;font-size:13px;margin-bottom:12px">${a} ~ ${b} · 실적 카드 기준 (활동 유형이 선택된 건)</div>`;
+  let any=false;
+  ACT.forEach(ac=>{
+    const l=cs.filter(c=>c.act===ac.k);if(!l.length)return;any=true;
+    const nf=ac.f.filter(f=>f[2]==='n');
+    h+=`<div style="margin-top:14px"><div style="font-weight:800;background:#eef3fa;padding:7px 10px;border-left:4px solid #0f6e56">${esc(ac.l)} <span style="font-weight:500;color:#555;font-size:13px">→ ${esc(ac.sheet)} (${l.length}건)</span></div>
+    <table style="width:100%;border-collapse:collapse;margin-top:6px;font-size:12.5px"><tr><th style="${TH}">단위과제</th><th style="${TH}">건수</th>${nf.map(f=>`<th style="${TH}">${f[1]}</th>`).join('')}</tr>
+    ${UNITS.filter(u=>l.some(c=>c.unit===u)).map(u=>{const x=l.filter(c=>c.unit===u);return `<tr><td style="${TD}">${u} ${UN[u]}</td><td style="${TD};text-align:center">${x.length}</td>${nf.map(f=>`<td style="${TD};text-align:right">${x.reduce((s,c)=>s+(+(c.actData||{})[f[0]]||0),0).toLocaleString()}</td>`).join('')}</tr>`;}).join('')}</table></div>`;
+  });
+  const best=cs.filter(c=>c.best);
+  h+=`<div style="margin-top:14px"><div style="font-weight:800;background:#fff7e6;padding:7px 10px;border-left:4px solid #c27c00">★ 우수사례 후보 (${best.length}건)</div>${best.map(c=>`<div style="${TD};border:none;border-bottom:1px solid #eee"><b>${esc(c.title)}</b> <span style="color:#666">(${c.unit} ${UN[c.unit]})</span><div>대표성과: ${esc(c.bestResult||'-')}</div></div>`).join('')||'<div style="color:#999;font-size:13px;padding:8px 4px">없음</div>'}</div>`;
+  if(!any&&!best.length)h+=`<div style="color:#999;text-align:center;padding:24px">해당 기간에 활동 유형이 입력된 카드가 없습니다.</div>`;
+  return h+`</div>`;
+}
+function exSurvey(){
+  if(typeof XLSX==='undefined'){toast('엑셀 라이브러리를 불러오지 못했습니다 (인터넷 연결 확인)','e');return;}
+  const {a,b,cs}=surveyData(),wb=XLSX.utils.book_new();let n=0;
+  ACT.forEach(ac=>{
+    const l=cs.filter(c=>c.act===ac.k);if(!l.length)return;n++;
+    const head=['단위과제명','일자','제목',...ac.f.map(f=>f[1])];
+    const rows=l.map(c=>[MST[c.unit].title,c.date,c.title,...ac.f.map(f=>{const v=(c.actData||{})[f[0]];return f[2]==='n'&&v!==undefined?+v:(v||'');})]);
+    XLSX.utils.book_append_sheet(wb,XLSX.utils.aoa_to_sheet([head,...rows]),ac.sheet.slice(0,31).replace(/[\\\/\?\*\[\]:]/g,' '));
+  });
+  const best=cs.filter(c=>c.best);
+  if(best.length){n++;XLSX.utils.book_append_sheet(wb,XLSX.utils.aoa_to_sheet([['프로그램명','연계 단위과제명','추진내용','대표 성과(정량적 성과 포함)','앵커 통합 사업 연계 여부'],...best.map(c=>[c.title,MST[c.unit].title,(c.lines||[]).join('\n'),c.bestResult||'',''])]),'우수사례');}
+  if(!n){toast('내보낼 데이터가 없습니다','e');return;}
+  XLSX.writeFile(wb,`실태조사_${gYear}_${gHalf==='1'?'상반기':'하반기'}.xlsx`);
+}
+
 </script>
 </body>
 </html>
