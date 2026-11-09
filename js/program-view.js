@@ -73,17 +73,30 @@ export function renderProgramView(targetSelector, routeId = 'business-1-1') {
   bindDepartmentForm(unitTaskId);
   bindGraduateForm(unitTaskId);
   bindCompanyForm(unitTaskId);
-  if (hasIndustryIndex) {
-    bindIndustryIndexForm(unitTaskId);
-    renderIndustryIndexTable(unitTaskId);
-  }
+  if (hasIndustryIndex) bindIndustryIndexForm(unitTaskId);
   bindProgramForm(unitTaskId);
+  refreshBusinessTables(unitTaskId, hasIndustryIndex);
+  scheduleHydrationRefresh(unitTaskId, hasIndustryIndex);
+}
+
+function refreshBusinessTables(unitTaskId, hasIndustryIndex = hasIndustryIndexKpi(unitTaskId)) {
   renderDepartmentTable(unitTaskId);
   renderGraduateTable(unitTaskId);
   renderCompanyTable(unitTaskId);
+  if (hasIndustryIndex) renderIndustryIndexTable(unitTaskId);
   renderProgramTable(unitTaskId);
   renderFacultySummary(unitTaskId);
   renderEvidenceSummary(unitTaskId);
+}
+
+function scheduleHydrationRefresh(unitTaskId, hasIndustryIndex) {
+  [250, 800, 1600].forEach(delay => {
+    window.setTimeout(() => {
+      if (document.querySelector(`#${DEPT_TABLE_ID}`) || document.querySelector(`#${TABLE_ID}`)) {
+        refreshBusinessTables(unitTaskId, hasIndustryIndex);
+      }
+    }, delay);
+  });
 }
 
 function hasIndustryIndexKpi(unitTaskId) {
@@ -132,10 +145,29 @@ function bindDepartmentForm(unitTaskId) {
   });
 }
 
+function normalizeDepartmentRow(row) {
+  const memo = row.memo || row.note || '';
+  const masterMatch = String(memo).match(/석사\s*(\d+)/);
+  const doctorMatch = String(memo).match(/박사\s*(\d+)/);
+  const nanoMatch = String(memo).match(/나노디그리\s*(\d+)/);
+  return {
+    ...row,
+    unitTaskId: row.unitTaskId || row.unit_task_id,
+    department: row.department || row.name || '-',
+    bachelor: Number(row.bachelor ?? row.studentCount ?? row.student_count ?? 0),
+    master: Number(row.master ?? (masterMatch ? masterMatch[1] : row.graduateCount ?? row.graduate_count ?? 0) ?? 0),
+    doctor: Number(row.doctor ?? (doctorMatch ? doctorMatch[1] : 0) ?? 0),
+    nano: Number(row.nano ?? (nanoMatch ? nanoMatch[1] : 0) ?? 0),
+    note: row.note || row.memo || 'KPI 산출 제외'
+  };
+}
+
 function renderDepartmentTable(unitTaskId) {
   const target = document.querySelector(`#${DEPT_TABLE_ID}`);
   if (!target) return;
-  const rows = getCollection('departments').filter(row => row.unitTaskId === unitTaskId);
+  const rows = getCollection('departments')
+    .map(normalizeDepartmentRow)
+    .filter(row => row.unitTaskId === unitTaskId && row.department && row.department !== '-');
   if (!rows.length) return target.innerHTML = createEmptyState({ title: '참여학과 없음', description: '참여학과를 등록해 주세요.' });
   target.innerHTML = `${createTable({ columns: [
     { key: 'department', label: '학과' },
@@ -144,7 +176,7 @@ function renderDepartmentTable(unitTaskId) {
     { key: 'doctor', label: '박사 재학생' },
     { key: 'nano', label: '나노디그리 참여' },
     { key: 'note', label: '비고' }
-  ], rows: rows.map(row => ({ ...row, note: row.note || 'KPI 산출 제외' })) })}<div class="form-actions" style="margin-top:12px;"><button class="btn btn-outline" id="deleteLatestDepartment" type="button">최근 등록 학과 삭제</button></div>`;
+  ], rows })}<div class="form-actions" style="margin-top:12px;"><button class="btn btn-outline" id="deleteLatestDepartment" type="button">최근 등록 학과 삭제</button></div>`;
   document.querySelector('#deleteLatestDepartment')?.addEventListener('click', () => { const latest = rows.at(-1); if (!latest) return; removeItem('departments', latest.id); showToast('최근 등록 학과가 삭제되었습니다.'); renderDepartmentTable(unitTaskId); });
 }
 
@@ -257,7 +289,7 @@ function renderIndustryIndexTable(unitTaskId) {
 
 function renderProgramForm(unitTaskId) {
   const kpis = KPI_DEFINITIONS[unitTaskId] || [];
-  return `<form id="${FORM_ID}" class="form-grid"><input type="hidden" name="id" /><input type="hidden" name="unitTaskId" value="${unitTaskId}" /><label class="form-field"><span>프로그램명</span><input name="name" type="text" placeholder="예: 융합기술 포럼, 단기전문교육과정" /></label><label class="form-field"><span>구분</span><select name="type"><option value="교육프로그램">교육프로그램</option><option value="포럼/세미나">포럼/세미나</option><option value="성과교류회">성과교류회</option><option value="PBL">PBL</option><option value="창업프로그램">창업프로그램</option><option value="산학협력 프로젝트">산학협력 프로젝트</option><option value="초광역 협력">초광역 협력</option><option value="기타">기타</option></select></label><label class="form-field"><span>연계 KPI</span><select name="linkedKpi">${kpis.map(kpi => `<option value="${kpi.name}">${kpi.name}</option>`).join('')}</select></label><label class="form-field"><span>참여교원</span><input name="faculty" type="text" placeholder="예: 김OO(총괄), 이OO(강연)" /></label><label class="form-field"><span>참여기업</span><input name="companyNames" type="text" placeholder="예: 유일로보틱스, 엘라인" /></label><label class="form-field"><span>시작일</span><input name="startDate" type="date" /></label><label class="form-field"><span>종료일</span><input name="endDate" type="date" /></label><label class="form-field"><span>참여자/수료자 수</span><input name="participants" type="number" min="0" value="0" /></label><label class="form-field"><span>예산</span><input name="budget" type="number" min="0" value="0" /></label><label class="form-field"><span>사업계획서</span><select name="hasPlan"><option value="Y">첨부완료</option><option value="N">미첨부</option></select></label><label class="form-field"><span>결과보고서</span><select name="hasResultReport"><option value="Y">첨부완료</option><option value="N">미첨부</option></select></label><label class="form-field"><span>상태</span><select name="status"><option value="PLANNED">계획</option><option value="IN_PROGRESS">진행중</option><option value="COMPLETED">완료</option></select></label><div class="form-actions"><button class="btn btn-primary" type="submit">저장</button><button class="btn btn-outline" type="reset">초기화</button></div></form>`;
+  return `<form id="${FORM_ID}" class="form-grid"><input type="hidden" name="id" /><input type="hidden" name="unitTaskId" value="${unitTaskId}" /><label class="form-field"><span>프로그램명</span><input name="name" type="text" placeholder="예: 융합기술 포럼, 단기전문교육과정" /></label><label class="form-field"><span>구분</span><select name="type"><option value="교육프로그램">교육프로그램</option><option value="포럼/세미나">포럼/세미나</option><option value="성과교류회">성과교류회</option><option value="PBL">PBL</option><option value="창업프로그램">창업프로그램</option><option value="산학협력 프로젝트">산학협력 프로젝트</option><option value="초광역 협력">초광역 협력</option><option value="기타">기타</option></select></label><label class="form-field"><span>연계 KPI</span><select name="linkedKpi">${kpis.map(kpi => `<option value="${kpi.name}">${kpi.name}</option>`).join('')}</select></label><label class="form-field"><span>참여교원</span><input name="faculty" type="text" placeholder="예: 김OO(총괄), 이OO(강연)" /></label><label class="form-field"><span>참여기업</span><input name="companyNames" type="text" placeholder="예: 유일로보틱스, 엘라인" /></label><label class="form-field"><span>시작일</span><input name="startDate" type="date" /></label><label class="form-field"><span>종료일</span><input name="endDate" type="date" /></label><label class="form-field"><span>참여자/수료자 수</span><input name="participants" type="number" min="0" value="0" /></label><label class="form-field"><span>KPI 인정실적</span><input name="expectedRecognized" type="number" min="0" placeholder="미입력 시 참여자/수료자 수 기준" /></label><label class="form-field"><span>예산</span><input name="budget" type="number" min="0" value="0" /></label><label class="form-field"><span>사업계획서</span><select name="hasPlan"><option value="Y">첨부완료</option><option value="N">미첨부</option></select></label><label class="form-field"><span>결과보고서</span><select name="hasResultReport"><option value="Y">첨부완료</option><option value="N">미첨부</option></select></label><label class="form-field"><span>상태</span><select name="status"><option value="PLANNED">계획</option><option value="IN_PROGRESS">진행중</option><option value="COMPLETED">완료</option></select></label><div class="form-actions"><button class="btn btn-primary" type="submit">저장</button><button class="btn btn-outline" type="reset">초기화</button></div></form>`;
 }
 
 function bindProgramForm(unitTaskId) {
@@ -270,7 +302,8 @@ function bindProgramForm(unitTaskId) {
     const dateCheck = validateDateRange(values.startDate, values.endDate);
     if (!dateCheck.valid) return showToast(dateCheck.message);
     if (!validateNumber(values.participants, { min: 0 }).valid || !validateNumber(values.budget, { min: 0 }).valid) return showToast('숫자 입력값을 확인해 주세요.');
-    upsertItem('programs', { id: values.id || `program_${Date.now()}`, unitTaskId, name: values.name, type: values.type, linkedKpi: values.linkedKpi, faculty: values.faculty || '', companyNames: values.companyNames || '', startDate: values.startDate, endDate: values.endDate, participants: Number(values.participants), budget: Number(values.budget), hasPlan: values.hasPlan, hasResultReport: values.hasResultReport, status: values.status });
+    if (values.expectedRecognized && !validateNumber(values.expectedRecognized, { min: 0 }).valid) return showToast('KPI 인정실적 입력값을 확인해 주세요.');
+    upsertItem('programs', { id: values.id || `program_${Date.now()}`, unitTaskId, name: values.name, type: values.type, linkedKpi: values.linkedKpi, faculty: values.faculty || '', companyNames: values.companyNames || '', startDate: values.startDate, endDate: values.endDate, participants: Number(values.participants), expectedRecognized: values.expectedRecognized === '' ? null : Number(values.expectedRecognized), budget: Number(values.budget), hasPlan: values.hasPlan, hasResultReport: values.hasResultReport, status: values.status });
     showToast('프로그램이 저장되었습니다.');
     form.reset();
     renderProgramTable(unitTaskId);
@@ -292,7 +325,7 @@ function renderProgramTable(unitTaskId) {
     const evidence = getProgramEvidenceStatus(program);
     return { ...program, statusLabel: getProgramStatusLabel(program.status), hasPlan: program.hasPlan === 'Y' || evidence.planReady ? '첨부완료' : '미첨부', hasResultReport: program.hasResultReport === 'Y' || evidence.resultReady ? '첨부완료' : '미첨부', evidenceReady: evidence.ready ? '완비' : `보완필요(${evidence.readyCount}/${evidence.totalCount})`, kpiReady: program.status === 'COMPLETED' && evidence.ready ? 'KPI 반영 가능' : '대기', expectedRecognized: program.expectedRecognized ?? '-' };
   });
-  target.innerHTML = `${renderProgramStatusControls(programs)}${createTable({ columns: [{ key: 'name', label: '프로그램명' }, { key: 'type', label: '구분' }, { key: 'linkedKpi', label: '연계 KPI' }, { key: 'participants', label: '참여/수료' }, { key: 'expectedRecognized', label: '예상인정실적' }, { key: 'faculty', label: '참여교원' }, { key: 'companyNames', label: '참여기업' }, { key: 'hasPlan', label: '계획서' }, { key: 'hasResultReport', label: '결과보고서' }, { key: 'evidenceReady', label: '증빙상태' }, { key: 'kpiReady', label: 'KPI 반영' }, { key: 'statusLabel', label: '상태' }], rows })}<div class="form-actions" style="margin-top:12px;"><button class="btn btn-outline" id="deleteLatestProgram" type="button">최근 등록 프로그램 삭제</button></div>`;
+  target.innerHTML = `${renderProgramStatusControls(programs)}${createTable({ columns: [{ key: 'name', label: '프로그램명' }, { key: 'type', label: '구분' }, { key: 'linkedKpi', label: '연계 KPI' }, { key: 'participants', label: '참여/수료' }, { key: 'expectedRecognized', label: 'KPI 인정실적' }, { key: 'faculty', label: '참여교원' }, { key: 'companyNames', label: '참여기업' }, { key: 'hasPlan', label: '계획서' }, { key: 'hasResultReport', label: '결과보고서' }, { key: 'evidenceReady', label: '증빙상태' }, { key: 'kpiReady', label: 'KPI 반영' }, { key: 'statusLabel', label: '상태' }], rows })}<div class="form-actions" style="margin-top:12px;"><button class="btn btn-outline" id="deleteLatestProgram" type="button">최근 등록 프로그램 삭제</button></div>`;
   bindProgramStatusControls(unitTaskId);
   document.querySelector('#deleteLatestProgram')?.addEventListener('click', () => { const latest = getUnitPrograms(unitTaskId).at(-1); if (!latest) return; removeItem('programs', latest.id); showToast('최근 등록 프로그램이 삭제되었습니다.'); renderProgramTable(unitTaskId); renderFacultySummary(unitTaskId); renderEvidenceSummary(unitTaskId); });
 }
