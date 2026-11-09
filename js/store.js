@@ -124,9 +124,12 @@ const DB_FIELD_MAP = {
   },
   departments: {
     unitTaskId: 'unit_task_id',
-    department: 'name',
-    bachelor: 'student_count',
-    note: 'memo'
+    department: 'department',
+    bachelor: 'bachelor',
+    master: 'master',
+    doctor: 'doctor',
+    nano: 'nano',
+    note: 'note'
   },
   graduates: {
     unitTaskId: 'unit_task_id',
@@ -270,11 +273,9 @@ async function hydrateSupabaseCollections() {
     }
     if (!Array.isArray(data)) return;
     const normalized = data.map(row => fromDbRow(collectionName, row));
-    const localRows = readCollection(collectionName, []);
-    if (!normalized.length && Array.isArray(localRows) && localRows.length) {
-      console.warn(`[Supabase] ${tableName} 조회 결과가 비어 있어 기존 localStorage 데이터를 유지합니다. 저장 정책/컬럼/RLS를 확인하세요.`);
-      return;
-    }
+    // Supabase가 빈 배열을 반환하면 로컬 데이터를 보존 (저장 실패 시 데이터 손실 방지)
+    const localData = state[collectionName] || [];
+    if (normalized.length === 0 && localData.length > 0) return;
     state = { ...state, [collectionName]: normalized };
     writeCollection(collectionName, normalized);
   }));
@@ -288,18 +289,27 @@ async function syncUpsert(collectionName, item) {
     console.warn(`[AIMS] ${collectionName} 저장은 localStorage에만 반영됨: Supabase config missing.`);
     return;
   }
-  const client = await getSupabaseClient();
-  if (!client) return;
-  const tableName = getTableName(collectionName);
-  const payload = toDbRow(collectionName, item);
-  const { error } = await client.from(tableName).upsert(payload, { onConflict: 'id' });
-  if (error) {
-    console.warn(`[Supabase] ${tableName} 저장 실패`, error.message, payload);
-    showSyncWarning(`${tableName} 저장 실패: ${error.message}`);
-    return;
+  try {
+    const client = await getSupabaseClient();
+    if (!client) {
+      console.warn('[AIMS] Supabase 클라이언트 생성 실패 - localStorage에만 저장됨');
+      return;
+    }
+    const tableName = getTableName(collectionName);
+    const payload = toDbRow(collectionName, item);
+    console.info(`[Supabase] ${tableName} 저장 시도`, payload);
+    const { error } = await client.from(tableName).upsert(payload, { onConflict: 'id' });
+    if (error) {
+      console.warn(`[Supabase] ${tableName} 저장 실패`, error.message, payload);
+      showSyncWarning(`${tableName} 저장 실패: ${error.message}`);
+      return;
+    }
+    syncMode = 'supabase';
+    console.warn(`[Supabase] ${tableName} 저장 완료 ✓`, item.id);
+  } catch (e) {
+    console.warn('[Supabase] syncUpsert 예외 발생', e?.message || e);
+    showSyncWarning(`Supabase 연결 오류: ${e?.message || '알 수 없는 오류'}`);
   }
-  syncMode = 'supabase';
-  console.info(`[Supabase] ${tableName} 저장 완료`, item.id);
 }
 
 async function syncDelete(collectionName, itemId) {
