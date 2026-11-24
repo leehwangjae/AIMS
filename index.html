@@ -3,6 +3,14 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta name="theme-color" content="#1a6fc4">
+<link rel="manifest" href="/manifest.webmanifest">
+<link rel="apple-touch-icon" href="/icons/apple-touch-icon.png">
+<link rel="icon" type="image/png" href="/icons/icon-192.png">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-title" content="INU AIMS">
+<meta name="apple-mobile-web-app-status-bar-style" content="default">
 <title>INU AIMS · ANCHOR Integrated Management System</title>
 <style>
 .ti{display:inline-block;width:1.1em;height:1.1em;vertical-align:-.15em;background-color:currentColor;-webkit-mask:var(--ic) center/contain no-repeat;mask:var(--ic) center/contain no-repeat;font-style:normal}
@@ -2720,6 +2728,7 @@ async function migrateLocal(){
 }
 boot();
 
+if('serviceWorker' in navigator&&location.protocol==='https:')window.addEventListener('load',()=>navigator.serviceWorker.register('/sw.js').catch(()=>{}));
 </script>
 
 <nav id="MBN" aria-label="모바일 메뉴">
