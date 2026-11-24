@@ -90,8 +90,10 @@ body{font-family:var(--fn);background:var(--bg);color:var(--tx);min-height:100vh
 #MBN{display:none}
 @media(max-width:640px){
  body .nav{display:none}
- .dpt a,.dp a{display:none!important}
- .main{padding-bottom:96px}
+ .dpt a{display:none!important}
+ .dp div[style*="minmax(190px"]{grid-template-columns:repeat(2,1fr)!important;gap:10px!important}
+ .dp div[style*="minmax(190px"]>a{height:78px!important;padding:8px 10px!important}
+ body .main{padding-bottom:calc(120px + env(safe-area-inset-bottom))!important}
  #MBN{display:flex;position:fixed;left:0;right:0;bottom:0;z-index:50;background:#fff;border-top:1.5px solid var(--bd);padding:6px 4px calc(6px + env(safe-area-inset-bottom));box-shadow:0 -4px 16px rgba(15,40,80,.08)}
  #MBN button{flex:1;background:none;border:none;display:flex;flex-direction:column;align-items:center;gap:3px;padding:6px 0;color:var(--tx3);font-size:11.5px;font-weight:600;font-family:var(--fn);cursor:pointer;border-radius:12px}
  #MBN button i{font-size:22px}
@@ -2211,7 +2213,7 @@ function syncInd(auto){
 // ══════════════════════════════════════════════
 function dRing(p,c,sz=78){const r=sz/2-8,L=2*Math.PI*r,v=Math.min(Math.max(p,0),100);return`<svg width="${sz}" height="${sz}" viewBox="0 0 ${sz} ${sz}" style="flex:none"><circle cx="${sz/2}" cy="${sz/2}" r="${r}" fill="none" stroke="var(--bd)" stroke-width="8"/><circle cx="${sz/2}" cy="${sz/2}" r="${r}" fill="none" stroke="${c}" stroke-width="8" stroke-linecap="round" stroke-dasharray="${L*v/100} ${L}" transform="rotate(-90 ${sz/2} ${sz/2})"/><text x="50%" y="50%" text-anchor="middle" dominant-baseline="central" font-size="${sz>70?17:14}" font-weight="800" fill="${c}">${p}%</text></svg>`;}
 function dBar(p,c){return`<div class="dbar"><i style="width:${Math.min(p,100)}%;background:${c}"></i></div>`;}
-let dS={v:'ind',u:'전체',f:'전체'};
+let dS={v:'ind',u:'전체',f:'전체',bt:'전체'};
 function dSel(k,val){dS[k]=val;if(k==='u'&&val!=='1-1')dS.f='전체';rDash();}
 function dPanel(){
   const sum=l=>[l.reduce((a,b)=>a+b.al,0),l.reduce((a,b)=>a+b.ex,0)];
@@ -2227,8 +2229,9 @@ function dPanel(){
   const [ta,te]=sum(src);
   h+=`<div style="display:flex;gap:22px;margin-bottom:16px;flex-wrap:wrap"><div><div class="dks">편성</div><b style="font-size:20px">${fmt(ta)}</b></div><div><div class="dks">집행</div><b style="font-size:20px">${fmt(te)}</b></div><div><div class="dks">잔액</div><b style="font-size:20px">${fmt(ta-te)}</b></div><div><div class="dks">집행률</div><b style="font-size:20px;color:${pc(pct(te,ta))}">${pct(te,ta)}%</b></div><div class="dks" style="align-self:flex-end;margin-left:auto;text-align:right">(천원)<br>최종 업데이트 ${erpLast(src)||erpLast()||'-'}</div></div>`;
   [['이월','#92400e'],['연차','#1a6fc4']].forEach(([t,c])=>{const [a,e]=sum(src.filter(b=>b.btype===t)),r=pct(e,a);h+=`<div style="margin-bottom:12px"><div style="display:flex;justify-content:space-between;margin-bottom:5px"><b style="color:${c};font-size:13.5px">${t}사업비</b><span style="font-size:13px;color:var(--tx2)">${fmt(e)} / ${fmt(a)} · <b style="color:${c}">${r}%</b></span></div>${dBar(r,c)}</div>`;});
-  h+=`<div style="border-top:1.5px solid var(--bd);margin-top:6px;padding-top:10px;font-size:13px;font-weight:700;color:var(--tx2)">${U==='전체'?'단위과제별':'비목명별'} 집행률</div><div style="max-height:190px;overflow-y:auto;padding-right:6px">`;
-  const g={};src.forEach(b=>{const k=U==='전체'?b.unit:b.cat;(g[k]=g[k]||{al:0,ex:0});g[k].al+=b.al;g[k].ex+=b.ex;});
+  const bt=dS.bt,lst=bt==='전체'?src:src.filter(b=>b.btype===bt);
+  h+=`<div style="border-top:1.5px solid var(--bd);margin-top:6px;padding-top:10px;display:flex;align-items:center;justify-content:space-between;gap:8px;flex-wrap:wrap"><span style="font-size:13px;font-weight:700;color:var(--tx2)">${U==='전체'?'단위과제별':'비목명별'} 집행률</span><span style="display:flex;gap:5px">${['전체','이월','연차'].map(x=>`<button class="chp${bt===x?' on':''}" style="padding:4px 11px;font-size:12.5px" onclick="dSel('bt','${x}')">${x==='전체'?x:x+'사업비'}</button>`).join('')}</span></div><div style="max-height:190px;overflow-y:auto;padding-right:6px;margin-top:6px">`;
+  const g={};lst.forEach(b=>{const k=U==='전체'?b.unit:b.cat;(g[k]=g[k]||{al:0,ex:0});g[k].al+=b.al;g[k].ex+=b.ex;});
   h+=Object.entries(g).sort((x,y)=>y[1].al-x[1].al).map(([k,v])=>{const r=pct(v.ex,v.al);return`<div class="dm" style="grid-template-columns:200px 1fr 60px"><span style="overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${U==='전체'?ub(k)+' '+UN[k]:esc(k)}</span>${dBar(r,pc(r))}<b style="text-align:right;color:${pc(r)}">${r}%</b></div>`;}).join('')||'<div style="color:var(--tx3);padding:20px 0;text-align:center">예산 데이터가 없습니다</div>';
   return h+'</div>';
 }
