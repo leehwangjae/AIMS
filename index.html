@@ -438,13 +438,21 @@ body{font-family:var(--fn);background:var(--bg);color:var(--tx);min-height:100vh
 <div class="mbg" id="MB"><div class="modal" style="width:480px">
   <div class="mhd"><span id="MBT">예산 항목 추가</span><button onclick="cm('MB')">×</button></div>
   <div class="mbd"><div class="fg">
-    <div><label class="fl">단위사업</label><select class="fi" id="b_u"><option>1-1</option><option>1-2</option><option>1-3</option><option value="2-1">2-1 AI</option></select></div>
+    <div><label class="fl">단위사업</label><select class="fi" id="b_u" onchange="bfaShow()"><option>1-1</option><option>1-2</option><option>1-3</option><option value="2-1">2-1 AI</option></select></div>
     <div><label class="fl">사업비 구분</label><select class="fi" id="b_bt"><option value="이월">이월사업비</option><option value="연차">연차사업비</option></select></div>
     <div><label class="fl">비목명</label><input class="fi" id="b_c" list="b_cl" placeholder="예: 그 밖의 사업운영 경비"><datalist id="b_cl"></datalist></div>
     <div><label class="fl">세목</label><input class="fi" id="b_n" placeholder="예: 220-01국내여비"></div>
     <div class="fgf"><label class="fl">1-1 분야 (비율 40:40:20 배분 또는 전용 지정)</label><select class="fi" id="b_f"><option value="">공통 (바이오 40 · 반도체 40 · 물류 20 배분)</option><option>바이오</option><option>반도체</option><option>물류</option></select></div>
     <div><label class="fl">편성액 (천원)</label><input class="fi" id="b_a" type="number" placeholder="0"></div>
     <div><label class="fl">집행액 (천원)</label><input class="fi" id="b_e" type="number" placeholder="0"></div>
+    <div class="fgf" id="b_fa" style="display:none;border-top:1.5px solid var(--bd);padding-top:10px">
+      <label class="fl">1-1 분야별 금액 (천원) — 입력하면 합계가 위 편성·집행액으로 자동 계산됩니다</label>
+      <div style="display:grid;grid-template-columns:70px 1fr 1fr;gap:6px 8px;align-items:center;font-size:13px">
+        <span></span><b style="color:var(--tx2)">편성</b><b style="color:var(--tx2)">집행</b>
+        <span>바이오</span><input class="fi" id="bfa_0a" type="number" placeholder="0" oninput="bfaSum()"><input class="fi" id="bfa_0e" type="number" placeholder="0" oninput="bfaSum()"><span>반도체</span><input class="fi" id="bfa_1a" type="number" placeholder="0" oninput="bfaSum()"><input class="fi" id="bfa_1e" type="number" placeholder="0" oninput="bfaSum()"><span>물류</span><input class="fi" id="bfa_2a" type="number" placeholder="0" oninput="bfaSum()"><input class="fi" id="bfa_2e" type="number" placeholder="0" oninput="bfaSum()">
+      <span>합계</span><b id="bfa_ta"></b><b id="bfa_te"></b>
+      </div>
+    </div>
   </div></div>
   <div class="mft"><button class="mcx" onclick="cm('MB')">취소</button><button class="mok" onclick="svB()">저장</button></div>
 </div></div>
@@ -895,6 +903,7 @@ const FR={'바이오':.4,'반도체':.4,'물류':.2};
 function erpLast(l){const d=(l||budget).map(b=>b.upd).filter(Boolean).sort().pop();return d?d.replace(/-/g,'.'):'';}
 function bvwF(b,f){
   if(b.unit!=='1-1'||f==='전체')return b;
+  if(b.fa&&b.fa[f])return {...b,al:b.fa[f].al,ex:b.fa[f].ex,_fa:1};
   if(b.fld===f)return b;
   if(b.fld&&FR[b.fld])return null;
   return {...b,al:Math.round(b.al*FR[f]),ex:Math.round(b.ex*FR[f]),_sh:FR[f]};
@@ -1246,7 +1255,19 @@ function togI(){const t=document.getElementById('t_tp').value;document.getElemen
 function togD(){const s=document.getElementById('t_s').value;document.getElementById('DW').style.display=s==='지연'?'block':'none';}
 function updI(){const u=document.getElementById('t_u').value;const s=document.getElementById('t_i');s.innerHTML='<option value="">-- 선택 --</option>'+indicators.filter(i=>i.unit===u).map(i=>`<option value="${i.id}">${i.name} (${i.ul})</option>`).join('');}
 function opI(id){if(!isAdmin()){toast('관리자 권한이 필요합니다','e');return;}eI=id;const i=indicators.find(x=>x.id===id);if(!i)return;document.getElementById('MIT').textContent=i.name+' 실적 입력';document.getElementById('MII').innerHTML=`<strong>${i.unit} · ${i.name}</strong><br>2025 실적: ${i.a25>0?fmt(i.a25)+' '+i.ul:'-'}`;document.getElementById('i_t').value=i.t26||'';document.getElementById('i_a').value=i.a26||'';om('MI');}
-function opB(id){if(!isAdmin()){toast('관리자 권한이 필요합니다','e');return;}eB=id||null;document.getElementById('MBT').textContent=id?'예산 항목 수정':'예산 항목 추가';document.getElementById('b_cl').innerHTML=[...new Set(budget.map(b=>b.cat))].map(c=>'<option value="'+esc(c)+'">').join('');if(id){const b=budget.find(x=>x.id===id);if(b){document.getElementById('b_u').value=b.unit;document.getElementById('b_bt').value=b.btype;document.getElementById('b_c').value=b.cat;document.getElementById('b_n').value=b.name;document.getElementById('b_f').value=b.fld||'';document.getElementById('b_a').value=b.al;document.getElementById('b_e').value=b.ex;}}else{['b_n','b_a','b_e','b_f'].forEach(i=>document.getElementById(i).value='');}om('MB');}
+const FL=['바이오','반도체','물류'];
+function bfaShow(){document.getElementById('b_fa').style.display=document.getElementById('b_u').value==='1-1'?'block':'none';bfaSum();}
+function bfaSum(){let a=0,e=0,any=false;FL.forEach((f,i)=>{const x=document.getElementById('bfa_'+i+'a').value,y=document.getElementById('bfa_'+i+'e').value;if(x!==''||y!=='')any=true;a+=parseInt(x)||0;e+=parseInt(y)||0;});
+  document.getElementById('bfa_ta').textContent=any?a.toLocaleString():'';document.getElementById('bfa_te').textContent=any?e.toLocaleString():'';
+  ['b_a','b_e'].forEach(i=>document.getElementById(i).readOnly=any);if(any){document.getElementById('b_a').value=a;document.getElementById('b_e').value=e;}}
+function bfaDist(b,al,ex){ // ERP 합계에 맞춰 기존 분야 비율대로 재배분 (마지막 분야가 잔차 흡수)
+  const fa=b.fa,out={};let ra=0,re=0;
+  const sa=FL.reduce((t,f)=>t+(fa[f]?fa[f].al:0),0),se=FL.reduce((t,f)=>t+(fa[f]?fa[f].ex:0),0);
+  FL.forEach((f,i)=>{const last=i===FL.length-1,wa=sa?(fa[f]?fa[f].al:0)/sa:FR[f],we=se?(fa[f]?fa[f].ex:0)/se:(sa?(fa[f]?fa[f].al:0)/sa:FR[f]);
+    const A=last?al-ra:Math.round(al*wa),E=last?ex-re:Math.round(ex*we);ra+=A;re+=E;out[f]={al:A,ex:E};});
+  return out;
+}
+function opB(id){if(!isAdmin()){toast('관리자 권한이 필요합니다','e');return;}eB=id||null;document.getElementById('MBT').textContent=id?'예산 항목 수정':'예산 항목 추가';document.getElementById('b_cl').innerHTML=[...new Set(budget.map(b=>b.cat))].map(c=>'<option value="'+esc(c)+'">').join('');if(id){const b=budget.find(x=>x.id===id);if(b){document.getElementById('b_u').value=b.unit;document.getElementById('b_bt').value=b.btype;document.getElementById('b_c').value=b.cat;document.getElementById('b_n').value=b.name;document.getElementById('b_f').value=b.fld||'';document.getElementById('b_a').value=b.al;document.getElementById('b_e').value=b.ex;FL.forEach((f,i)=>{document.getElementById('bfa_'+i+'a').value=b.fa?b.fa[f].al:'';document.getElementById('bfa_'+i+'e').value=b.fa?b.fa[f].ex:'';});}}else{['b_n','b_a','b_e','b_f'].forEach(i=>document.getElementById(i).value='');FL.forEach((f,i)=>{document.getElementById('bfa_'+i+'a').value='';document.getElementById('bfa_'+i+'e').value='';});}bfaShow();om('MB');}
 function opD(id){eD=id||null;pFiles=[];document.getElementById('MDT').textContent=id?'기안 수정':'기안 추가';if(id){const d=dokuments.find(x=>x.id===id);if(d){document.getElementById('d_tp').value=d.dtype;document.getElementById('d_u').value=d.unit;document.getElementById('d_ti').value=d.title;document.getElementById('d_dt').value=d.date;document.getElementById('d_w').value=d.who;document.getElementById('d_s').value=d.stat;pFiles=d.files?[...d.files]:[];}}else{['d_ti','d_dt'].forEach(i=>document.getElementById(i).value='');document.getElementById('d_w').value=CU?.name||'';}rFL();om('MD');}
 function opR(id){eR=id||null;document.getElementById('MRT').textContent=id?'보고서 수정':'보고서 추가';if(id){const r=reports.find(x=>x.id===id);if(r){document.getElementById('r_tp').value=r.rtype;document.getElementById('r_wk').value=r.wkKey||'';document.getElementById('r_ti').value=r.title;document.getElementById('r_d').value=r.due;document.getElementById('r_w').value=r.who;document.getElementById('r_s').value=r.stat;}}else{['r_ti','r_d','r_wk'].forEach(i=>document.getElementById(i).value='');document.getElementById('r_w').value=CU?.name||'';}om('MR');}
 function opE(id){eE=id||null;document.getElementById('MET').textContent=id?'일정 수정':'일정 추가';if(id){const e=events.find(x=>x.id===id);if(e){document.getElementById('e_ti').value=e.title;document.getElementById('e_d').value=e.date;document.getElementById('e_u').value=e.unit;document.getElementById('e_et').value=e.etype;document.getElementById('e_w').value=e.who;document.getElementById('e_m').value=e.memo||'';}}else{['e_ti','e_d','e_m'].forEach(i=>document.getElementById(i).value='');document.getElementById('e_w').value=CU?.name||'';}om('ME');}
@@ -1262,7 +1283,8 @@ function svT(){
   sv('tasks',tasks);cm('MT');rTask();toast('업무가 저장되었습니다');
 }
 function svI(){const idx=indicators.findIndex(i=>i.id===eI);if(idx>-1){indicators[idx].t26=parseFloat(document.getElementById('i_t').value)||0;indicators[idx].a26=parseFloat(document.getElementById('i_a').value)||0;}sv('indicators',indicators);cm('MI');rInd();toast('실적이 저장되었습니다');}
-function svB(){const unit=document.getElementById('b_u').value,btype=document.getElementById('b_bt').value,cat=document.getElementById('b_c').value,name=document.getElementById('b_n').value.trim(),fld=unit==='1-1'?document.getElementById('b_f').value:'',al=parseInt(document.getElementById('b_a').value)||0,ex=parseInt(document.getElementById('b_e').value)||0;if(!cat){toast('비목명을 입력하세요','e');return;}if(eB){const idx=budget.findIndex(b=>b.id===eB);if(idx>-1)budget[idx]={...budget[idx],unit,btype,cat,name,al,ex,fld,upd:ymd(new Date())};}else budget.push({id:Date.now(),unit,btype,cat,name,al,ex,fld,upd:ymd(new Date())});sv('budget',budget);cm('MB');rBud();toast('저장되었습니다');}
+function svB(){let unit=document.getElementById('b_u').value,btype=document.getElementById('b_bt').value,cat=document.getElementById('b_c').value,name=document.getElementById('b_n').value.trim(),fld=unit==='1-1'?document.getElementById('b_f').value:'',al=parseInt(document.getElementById('b_a').value)||0,ex=parseInt(document.getElementById('b_e').value)||0;if(!cat){toast('비목명을 입력하세요','e');return;}
+  let fa=null;if(unit==='1-1'&&FL.some((f,i)=>document.getElementById('bfa_'+i+'a').value!==''||document.getElementById('bfa_'+i+'e').value!=='')){fa={};FL.forEach((f,i)=>{fa[f]={al:parseInt(document.getElementById('bfa_'+i+'a').value)||0,ex:parseInt(document.getElementById('bfa_'+i+'e').value)||0};});al=FL.reduce((t,f)=>t+fa[f].al,0);ex=FL.reduce((t,f)=>t+fa[f].ex,0);}if(eB){const idx=budget.findIndex(b=>b.id===eB);if(idx>-1){const o={...budget[idx],unit,btype,cat,name,al,ex,fld:fa?'':fld,upd:ymd(new Date())};if(fa)o.fa=fa;else delete o.fa;budget[idx]=o;}}else{const o={id:Date.now(),unit,btype,cat,name,al,ex,fld:fa?'':fld,upd:ymd(new Date())};if(fa)o.fa=fa;budget.push(o);}sv('budget',budget);cm('MB');rBud();toast('저장되었습니다');}
 function svD(){const dtype=document.getElementById('d_tp').value,unit=document.getElementById('d_u').value,title=document.getElementById('d_ti').value.trim(),date=document.getElementById('d_dt').value,who=document.getElementById('d_w').value.trim(),stat=document.getElementById('d_s').value;if(!title)return;if(eD){const idx=dokuments.findIndex(d=>d.id===eD);if(idx>-1)dokuments[idx]={...dokuments[idx],dtype,unit,title,date,who,stat,files:[...pFiles]};}else dokuments.push({id:Date.now(),dtype,unit,title,date,who,ownerId:CU?.id||'admin',stat,files:[...pFiles]});sv('dokuments',dokuments);cm('MD');rPer();toast('기안이 저장되었습니다');}
 function svR(){const rtype=document.getElementById('r_tp').value,wkKey=document.getElementById('r_wk').value.trim(),title=document.getElementById('r_ti').value.trim(),due=document.getElementById('r_d').value,who=document.getElementById('r_w').value.trim(),stat=document.getElementById('r_s').value;if(!title)return;if(eR){const idx=reports.findIndex(r=>r.id===eR);if(idx>-1)reports[idx]={...reports[idx],rtype,wkKey,title,due,who,stat};}else reports.push({id:Date.now(),rtype,wkKey,title,due,who,ownerId:CU?.id||'admin',stat});sv('reports',reports);cm('MR');rPer();toast('저장되었습니다');}
 function svE(){const title=document.getElementById('e_ti').value.trim(),date=document.getElementById('e_d').value,unit=document.getElementById('e_u').value,etype=document.getElementById('e_et').value,who=document.getElementById('e_w').value.trim(),memo=document.getElementById('e_m').value.trim();if(!title||!date)return;if(eE){if(!canEv(eE)){toast('본인이 등록한 일정만 수정할 수 있습니다','e');return;}const idx=events.findIndex(e=>e.id===eE);if(idx>-1)events[idx]={...events[idx],title,date,unit,etype,who,memo};}else events.push({id:Date.now(),title,date,unit,etype,who:who||CU?.name||'',ownerId:CU?.id||'',memo});sv('events',events);cm('ME');rSch();toast('일정이 저장되었습니다');}
@@ -1650,7 +1672,7 @@ function applyERP(){
     // 같은 unit+btype+비목명+세목이 있으면 업데이트, 없으면 추가
     const existing=budget.findIndex(b=>b.unit===p.unit&&b.btype===btype&&b.cat===p.cat&&b.name===p.name);
     if(existing>-1){
-      budget[existing].al=p.al;budget[existing].ex=p.ex;budget[existing].upd=ymd(new Date());updated++;
+      if(budget[existing].fa)budget[existing].fa=bfaDist(budget[existing],p.al,p.ex);budget[existing].al=p.al;budget[existing].ex=p.ex;budget[existing].upd=ymd(new Date());updated++;
     } else {
       budget.push({id:Date.now()+added,unit:p.unit,btype,cat:p.cat,name:p.name,al:p.al,ex:p.ex,upd:ymd(new Date())});
       added++;
