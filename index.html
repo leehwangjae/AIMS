@@ -90,6 +90,7 @@ body{font-family:var(--fn);background:var(--bg);color:var(--tx);min-height:100vh
 #MBN{display:none}
 @media(max-width:640px){
  body .nav{display:none}
+ .durg{display:none!important}
  .dpt a{display:none!important}
  .dp div[style*="minmax(190px"]{grid-template-columns:repeat(2,1fr)!important;gap:10px!important}
  .dp div[style*="minmax(190px"]>a{height:78px!important;padding:8px 10px!important}
@@ -796,13 +797,13 @@ let _tt=null;
 function toast(msg,t=''){const el=document.getElementById('TOAST');el.textContent=msg;el.style.background=t==='e'?'#b91c1c':'#1a1d2e';el.classList.add('show');if(_tt)clearTimeout(_tt);_tt=setTimeout(()=>el.classList.remove('show'),2500);}
 
 function go(tab){
-  if(MOB()&&!['dash','ind','per','sch'].includes(tab))tab='dash';
+  if(MOB()&&!['dash','ind','bud','per','sch'].includes(tab))tab='dash';
   curTab=tab;
   ['dash','task','ind','bud','per','sch','rpt','etc','my','more'].forEach(t=>document.getElementById('t-'+t).style.display=t===tab?'block':'none');
   document.querySelectorAll('#MBN button').forEach(b=>b.classList.toggle('on',b.dataset.t===tab||false));
   window.scrollTo(0,0);
   document.querySelectorAll('.nb').forEach((b,i)=>b.classList.toggle('on',['dash','task','ind','bud','per','sch','rpt','etc'][i]===tab));
-  if(MOB()&&tab!=='dash'){({ind:rMInd,per:rMTeam,sch:rMSch})[tab]();}else if(tab==='dash')rDash();else if(tab==='task')rTask();else if(tab==='ind')rInd();else if(tab==='bud')rBud();
+  if(MOB()&&tab!=='dash'){({ind:rMInd,bud:rMBud,per:rMTeam,sch:rMSch})[tab]();}else if(tab==='dash')rDash();else if(tab==='task')rTask();else if(tab==='ind')rInd();else if(tab==='bud')rBud();
   else if(tab==='per')rPer();else if(tab==='sch')rSch();else if(tab==='rpt')rRpt();else if(tab==='etc')rEtc();else if(tab==='my')rMy();else if(tab==='more')rMore();
 }
 function cm(id){document.getElementById(id).classList.remove('on');}
@@ -2319,7 +2320,7 @@ function rDash(){
     <div class="dkc" onclick="go('bud')">${dRing(tr,pc(tr))}<div>${MOB()?`<div class="dkl">예산 집행률 ${tr}%</div><div class="dkv" style="font-size:26px">현재 잔액 ${fmt(ta-te)}<span style="font-size:13px;font-weight:600;color:var(--tx2)">천원</span></div><div class="dks">편성 ${fmt(ta)} · 집행 ${fmt(te)}</div>`:`<div class="dkl">예산 집행률</div><div class="dkv">${fmt(te)}<span style="font-size:13px;font-weight:600;color:var(--tx2)"> 천원</span></div><div class="dks">편성 ${fmt(ta)} · 잔액 ${fmt(ta-te)}</div>`}<div class="dks" style="margin-top:2px">최종 업데이트 ${erpLast()||'-'}</div></div></div>
     <div class="dkc" onclick="go('sch')" onmouseenter="dHold=1" onmouseleave="dHold=0"><div style="width:78px;height:78px;border-radius:50%;background:var(--gn-l);display:flex;flex-direction:column;align-items:center;justify-content:center;flex:none"><i class="ti ti-calendar-event" style="font-size:22px;color:var(--gn)"></i><b style="font-size:17px;color:var(--gn)">${nx.length}건</b></div><div style="flex:1;min-width:0"><div class="dkl" style="display:flex;justify-content:space-between"><span>다가오는 일정 (10일 내)</span><span id="dRollN" style="font-weight:500;color:var(--tx3)"></span></div><div id="dRoll" style="transition:opacity .35s,transform .35s;min-height:62px"></div></div></div>
   </div>
-  <div class="dg" style="grid-template-columns:1.7fr 1fr"><div class="dp">${dPanel()}</div><div style="display:flex;flex-direction:column;gap:14px"><div class="dp" style="flex:1"><div class="dpt">지연 · 마감 임박 업무<a onclick="go('task')">›</a></div>`;
+  <div class="dg" style="grid-template-columns:1.7fr 1fr"><div class="dp">${dPanel()}</div><div class="durg" style="display:flex;flex-direction:column;gap:14px"><div class="dp" style="flex:1"><div class="dpt">지연 · 마감 임박 업무<a onclick="go('task')">›</a></div>`;
   const urg=tasks.filter(t=>t.stat!=='완료'&&(t.stat==='지연'||(t.due&&t.due<=dd(14)))).sort((a,b)=>String(a.due).localeCompare(String(b.due))).slice(0,8);
   h+=urg.length?urg.map(t=>{const n=t.due?Math.round((new Date(t.due)-T)/864e5):0,lt=t.stat==='지연'||n<0;return`<div class="dli">${ub(t.unit)}<span style="flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${esc(t.title)}</span><span class="dd" style="background:${lt?'var(--rd-l)':'var(--or-l)'};color:${lt?'var(--rd)':'var(--or)'}">${lt?'지연':n===0?'오늘':'D-'+n}</span></div>`;}).join(''):'<div style="color:var(--tx3);padding:14px 0;text-align:center">지연·임박 업무 없음</div>';
   h+=`</div></div></div>`+dBoard()+dBanner();
@@ -2363,8 +2364,24 @@ let mU='전체';
 function rMInd(){
   const l=indicators.filter(i=>i.t26>0&&(mU==='전체'||i.unit===mU)),ok=l.filter(i=>i.a26>=i.t26).length;
   let h=`<div class="dh"><div><h2>성과지표</h2><p>목표 설정 ${l.length}건 중 <b style="color:var(--gn)">${ok}건 달성</b></p></div></div><div style="display:flex;gap:6px;flex-wrap:wrap;margin-bottom:12px">${['전체',...UNITS].map(u=>`<button class="chp${mU===u?' on':''}" onclick="mU='${u}';rMInd()">${u}</button>`).join('')}</div>`;
-  h+=l.map(i=>({i,r:Math.round(i.a26/i.t26*100)})).sort((x,y)=>x.r-y.r).map(({i,r})=>`<div class="dp" style="margin-bottom:10px;padding:13px 14px"><div style="display:flex;gap:8px;align-items:center;margin-bottom:6px">${ub(i.unit)}<span style="flex:1;font-weight:600">${esc(i.name)}</span><b style="color:${ac(r)}">${r}%</b></div>${dBar(r,ac(r))}<div class="dks" style="margin-top:6px">${fmt(i.a26)} / ${fmt(i.t26)}${esc(i.ul||'')}</div></div>`).join('')||'<div style="color:var(--tx3);text-align:center;padding:30px 0">지표 데이터가 없습니다</div>';
+  h+=l.map(i=>({i,r:Math.round(i.a26/i.t26*100)})).sort((x,y)=>(UNITS.indexOf(x.i.unit)-UNITS.indexOf(y.i.unit))||(x.r-y.r)).map(({i,r})=>`<div class="dp" style="margin-bottom:10px;padding:13px 14px"><div style="display:flex;gap:8px;align-items:center;margin-bottom:6px">${ub(i.unit)}<span style="flex:1;font-weight:600">${esc(i.name)}</span><b style="color:${ac(r)}">${r}%</b></div>${dBar(r,ac(r))}<div class="dks" style="margin-top:6px">${fmt(i.a26)} / ${fmt(i.t26)}${esc(i.ul||'')}</div></div>`).join('')||'<div style="color:var(--tx3);text-align:center;padding:30px 0">지표 데이터가 없습니다</div>';
   document.getElementById('t-ind').innerHTML=h;
+}
+let mB={u:'전체',f:'전체',bt:'전체'};
+function rMBud(){
+  const sum=l=>[l.reduce((a,b)=>a+b.al,0),l.reduce((a,b)=>a+b.ex,0)],U=mB.u;
+  const src=budget.map(b=>bvwF(b,U==='1-1'?mB.f:'전체')).filter(Boolean).filter(b=>U==='전체'||b.unit===U);
+  const [ta,te]=sum(src),chip=(k,v,l)=>`<button class="chp${mB[k]===v?' on':''}" onclick="mB.${k}='${v}';${k==='u'&&v!=='1-1'?"mB.f='전체';":''}rMBud()">${l||v}</button>`;
+  let h=`<div class="dh"><div><h2>예산 현황</h2><p>최종 업데이트 ${erpLast(src)||erpLast()||'-'} · 단위 천원</p></div></div>
+  <div style="display:flex;gap:6px;flex-wrap:wrap;margin-bottom:10px">${['전체',...UNITS].map(u=>chip('u',u)).join('')}</div>`;
+  if(U==='1-1')h+=`<div style="display:flex;gap:6px;flex-wrap:wrap;margin-bottom:10px">${['전체','바이오','반도체','물류'].map(f=>chip('f',f,f==='전체'?'1-1 전체':f)).join('')}</div>`;
+  h+=`<div class="dp" style="margin-bottom:12px"><div class="dks">현재 잔액</div><div class="dkv" style="font-size:28px">${fmt(ta-te)}<span style="font-size:13px;font-weight:600;color:var(--tx2)">천원</span></div><div class="dks" style="margin:4px 0 10px">편성 ${fmt(ta)} · 집행 ${fmt(te)} · 집행률 <b style="color:${pc(pct(te,ta))}">${pct(te,ta)}%</b></div>${dBar(pct(te,ta),pc(pct(te,ta)))}</div><div class="dp" style="margin-bottom:12px">`;
+  [['이월','#92400e'],['연차','#1a6fc4']].forEach(([t,c])=>{const [a,e]=sum(src.filter(b=>b.btype===t)),r=pct(e,a);h+=`<div style="margin-bottom:12px"><div style="display:flex;justify-content:space-between;margin-bottom:5px"><b style="color:${c};font-size:13.5px">${t}사업비</b><span style="font-size:13px;color:var(--tx2)">${fmt(e)} / ${fmt(a)} · <b style="color:${c}">${r}%</b></span></div>${dBar(r,c)}</div>`;});
+  h+=`</div><div class="dp"><div style="display:flex;align-items:center;justify-content:space-between;gap:8px;flex-wrap:wrap;margin-bottom:8px"><b style="font-size:14px">${U==='전체'?'단위과제별':'비목명별'} 집행률</b><span style="display:flex;gap:5px">${['전체','이월','연차'].map(x=>chip('bt',x,x==='전체'?x:x+'사업비').replace('class="chp','style="padding:4px 11px;font-size:12.5px" class="chp')).join('')}</span></div>`;
+  const lst=mB.bt==='전체'?src:src.filter(b=>b.btype===mB.bt),g={};
+  lst.forEach(b=>{const k=U==='전체'?b.unit:b.cat;(g[k]=g[k]||{al:0,ex:0});g[k].al+=b.al;g[k].ex+=b.ex;});
+  h+=Object.entries(g).sort((x,y)=>U==='전체'?UNITS.indexOf(x[0])-UNITS.indexOf(y[0]):y[1].al-x[1].al).map(([k,v])=>{const r=pct(v.ex,v.al);return`<div style="padding:9px 0;border-top:1px solid var(--bd)"><div style="display:flex;justify-content:space-between;gap:8px;margin-bottom:5px"><span style="font-weight:600">${U==='전체'?ub(k)+' '+esc(UN[k]):esc(k)}</span><b style="color:${pc(r)}">${r}%</b></div>${dBar(r,pc(r))}<div class="dks" style="margin-top:4px">집행 ${fmt(v.ex)} / 편성 ${fmt(v.al)} · 잔액 ${fmt(v.al-v.ex)}</div></div>`;}).join('')||'<div style="color:var(--tx3);padding:20px 0;text-align:center">예산 데이터가 없습니다</div>';
+  document.getElementById('t-bud').innerHTML=h+'</div>';
 }
 function rMTeam(){
   document.getElementById('t-per').innerHTML=`<div class="dh"><div><h2>팀 업무 현황</h2><p>구성원별 오늘·이번 주 업무</p></div></div>`+dBoardM();
@@ -2759,7 +2776,8 @@ if('serviceWorker' in navigator&&location.protocol==='https:')window.addEventLis
 <nav id="MBN" aria-label="모바일 메뉴">
   <button data-t="dash" onclick="go('dash')"><i class="ti ti-layout-dashboard"></i><span>홈</span></button>
   <button data-t="ind" onclick="go('ind')"><i class="ti ti-target"></i><span>성과지표</span></button>
-  <button data-t="per" onclick="go('per')"><i class="ti ti-folder"></i><span>팀 현황</span></button>
+  <button data-t="bud" onclick="go('bud')"><i class="ti ti-coin"></i><span>예산현황</span></button>
+  <button data-t="per" onclick="go('per')"><i class="ti ti-folder"></i><span>팀현황</span></button>
   <button data-t="sch" onclick="go('sch')"><i class="ti ti-calendar"></i><span>일정</span></button>
 </nav>
 </body>
